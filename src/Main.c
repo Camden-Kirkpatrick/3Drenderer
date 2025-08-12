@@ -8,6 +8,7 @@
 #include "vector.h"
 #include "mesh.h"
 #include "array.h"
+#include "matrix.h"
 
 bool is_running = false;
 bool paused = false;
@@ -41,7 +42,7 @@ void setup(void)
 		window_height);
 
 	//load_cube_mesh_data();
-	load_obj_file_data("./assets/f22.obj");
+	load_obj_file_data("./assets/cube.obj");
 }
 
 void process_input(void)
@@ -132,9 +133,14 @@ void update(void)
 	// Initialize the arry of triangles to render
 	triangles_to_render = NULL;
 
+	// Change the mesh rotation/scale values per animation frame
 	mesh.rotation.x += 0.01;
 	mesh.rotation.y += 0.01;
-	//mesh.rotation.z += 0.01;
+	mesh.rotation.z += 0.01;
+	mesh.scale.x += 0.02;
+	mesh.scale.y += 0.02;
+
+	mat4_t scale_matrix = mat4_make_scale(mesh.scale.x, mesh.scale.y, mesh.scale.z);
 
 	int num_faces = array_length(mesh.faces);
 	// Loop all triangle faces of our mesh
@@ -148,16 +154,18 @@ void update(void)
 		face_vertices[1] = mesh.vertices[mesh_face.b - 1];
 		face_vertices[2] = mesh.vertices[mesh_face.c - 1];
 
-		vec3_t transformed_vertices[3];
+		vec4_t transformed_vertices[3];
 
 		// Loop each vertice on this face and apply transformations
 		for (int j = 0; j < 3; j++)
 		{
-			vec3_t transformed_vertex = face_vertices[j];
+			vec4_t transformed_vertex = vec4_from_vec3(face_vertices[j]);
 
-			transformed_vertex = vec3_rotate_x(transformed_vertex, mesh.rotation.x);
-			transformed_vertex = vec3_rotate_y(transformed_vertex, mesh.rotation.y);
-			transformed_vertex = vec3_rotate_z(transformed_vertex, mesh.rotation.z);
+			// transformed_vertex = vec3_rotate_x(transformed_vertex, mesh.rotation.x);
+			// transformed_vertex = vec3_rotate_y(transformed_vertex, mesh.rotation.y);
+			// transformed_vertex = vec3_rotate_z(transformed_vertex, mesh.rotation.z);
+
+			transformed_vertex = mat4_mul_vec4(scale_matrix, transformed_vertex);
 
 			// Translate the vertex away from the camera
 			transformed_vertex.z += 5;
@@ -169,9 +177,9 @@ void update(void)
 		if (cull_method == CULL_BACKFACE)
 		{
 			// These are the vectors that make up the triangle
-			vec3_t vec_a = transformed_vertices[0];
-			vec3_t vec_b = transformed_vertices[1];
-			vec3_t vec_c = transformed_vertices[2];
+			vec3_t vec_a = vec3_from_vec4(transformed_vertices[0]);
+			vec3_t vec_b = vec3_from_vec4(transformed_vertices[1]);
+			vec3_t vec_c = vec3_from_vec4(transformed_vertices[2]);
 
 			// Find the 2 edge vectors to compute the normal with
 			vec3_t vec_ab = vec3_sub(vec_b, vec_a);
@@ -198,7 +206,7 @@ void update(void)
 		for (int j = 0; j < 3; j++)
 		{
 			// Project the vertex and translate it
-			projected_points[j] = persp_proj(transformed_vertices[j]);
+			projected_points[j] = persp_proj(vec3_from_vec4(transformed_vertices[j]));
 			projected_points[j].x += (window_width / 2);
 			projected_points[j].y += (window_height / 2);
 		}
