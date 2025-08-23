@@ -69,7 +69,7 @@ vec3_t vec3_div(vec3_t v, float s)
 {
     return (vec3_t){v.x / s, v.y / s, v.z / s};
 }
-
+ 
 float vec3_dot(vec3_t a, vec3_t b)
 {
     return ((a.x * b.x) + (a.y * b.y) + (a.z * b.z));
@@ -108,9 +108,9 @@ vec3_t vec3_rotate_x(vec3_t v, float angle)
 vec3_t vec3_rotate_y(vec3_t v, float angle)
 {
     vec3_t rotated_vector = {
-        .x = v.x * cos(angle) - v.z * sin(angle),
+        .x = v.x * cos(angle) + v.z * sin(angle),
         .y = v.y,
-        .z = v.x * sin(angle) + v.z * cos(angle)};
+        .z = -v.x * sin(angle) + v.z * cos(angle)};
     return rotated_vector;
 }
 

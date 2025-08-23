@@ -9,6 +9,7 @@
 // This is how long each frame should last
 #define FRAME_TARGET_TIME (1000 / FPS)
 
+// Colors in the ARGB color space
 #define RED 0xFFFF0000
 #define GREEN 0xFF00FF00
 #define BLUE 0xFF0000FF
@@ -38,7 +39,9 @@ enum Render_Method
     RENDER_WIRE,
     RENDER_WIRE_VERTEX,
     RENDER_FILL_TRIANGLE,
-    RENDER_FILL_TRIANGLE_WIRE
+    RENDER_FILL_TRIANGLE_WIRE,
+    RENDER_GOURAUD,
+    RENDER_GOURAUD_WIRE
 };
 
 extern enum Cull_Method cull_method;

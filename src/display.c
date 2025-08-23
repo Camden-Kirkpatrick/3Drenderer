@@ -83,8 +83,8 @@ void draw_pixel(int x, int y, uint32_t color)
 	// Make sure the pixel is in bounds of the window
 	if (x < window_width && x >= 0 && y < window_height && y >= 0)
 		color_buffer[(window_width * y) + x] = color;
-	else
-		printf("Out of range: (%d, %d)\n", x, y);
+	// else
+	// 	printf("Out of range: (%d, %d)\n", x, y);
 }
 
 void draw_rectangle(int x, int y, int width, int height, uint32_t color)
