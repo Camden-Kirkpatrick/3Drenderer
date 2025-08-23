@@ -141,6 +141,10 @@ mat4_t mat4_make_orthographic(float left, float right,
                               float bottom, float top,
                               float znear, float zfar)
 {
+    //   |  2/(r-l)      0           0        -(r+l)/(r-l) |
+    //   |     0      2/(t-b)        0        -(t+b)/(t-b) |
+    //   |     0         0       -2/(f-n)     -(f+n)/(f-n) |
+    //   |     0         0           0             1       |
     mat4_t m = {{{0}}};
 
     m.m[0][0] = 2.0f / (right - left);

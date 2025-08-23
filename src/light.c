@@ -1,7 +1,9 @@
 #include "light.h"
 
-light_t light = { .direction = {0, 0, 1} }; 
+// Light from the camera to the window
+light_t light = {.direction = {0, 0, 1}};
 
+// Modify colors based on the percentage factor
 uint32_t light_apply_intensity(uint32_t original_color, float percentage_factor)
 {
     if (percentage_factor < 0) percentage_factor = 0;

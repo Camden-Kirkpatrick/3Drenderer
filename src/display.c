@@ -12,6 +12,7 @@ SDL_Texture *color_buffer_texture = NULL;
 enum Cull_Method cull_method;
 enum Render_Method render_method;
 
+// Used with the animate_rectangles function
 bool *inited = NULL;
 int *size = NULL;
 int *rx = NULL;
@@ -133,6 +134,7 @@ uint32_t generate_random_color(void)
 	return color; // Return the last generated color
 }
 
+// Create a bunch of random rectangles that bounce around the window
 void animate_rectangles(int num_rects)
 {
 	if (num_rects <= 0)
