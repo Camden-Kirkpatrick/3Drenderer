@@ -12,5 +12,5 @@ run:
 	renderer
 
 clean:
-	del renderer
+	del renderer.exe
 	
