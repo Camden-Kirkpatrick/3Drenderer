@@ -90,7 +90,6 @@ void load_obj_file_data(char *path, uint32_t obj_color)
 
             if (sscanf(line + 2, "%d/%*d/%*d  %d/%*d/%*d  %d/%*d/%*d",
                        &face.a, &face.b, &face.c) == 3)
-                ;
             {
                 array_push(mesh.faces, face);
             }

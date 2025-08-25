@@ -137,24 +137,18 @@ mat4_t mat4_make_perspective(float fov, float aspect_ratio, float znear, float z
     return m;
 }
 
-mat4_t mat4_make_orthographic(float left, float right,
-                              float bottom, float top,
-                              float znear, float zfar)
+mat4_t mat4_make_orthographic(float l, float r,
+                              float b, float t,
+                              float n, float f)
 {
-    //   |  2/(r-l)      0           0        -(r+l)/(r-l) |
-    //   |     0      2/(t-b)        0        -(t+b)/(t-b) |
-    //   |     0         0       -2/(f-n)     -(f+n)/(f-n) |
-    //   |     0         0           0             1       |
     mat4_t m = {{{0}}};
 
-    m.m[0][0] = 2.0f / (right - left);
-    m.m[1][1] = 2.0f / (top - bottom);
-    m.m[2][2] = 1.0f / (zfar - znear);
-
-    m.m[0][3] = -(right + left) / (right - left);
-    m.m[1][3] = -(top + bottom) / (top - bottom);
-    m.m[2][3] = -znear / (zfar - znear);
-
+    m.m[0][0] = 2.0f / (r - l);
+    m.m[1][1] = 2.0f / (t - b);
+    m.m[2][2] = 1.0f / (f - n);
+    m.m[0][3] = -(r + l) / (r - l);
+    m.m[1][3] = -(t + b) / (t - b);
+    m.m[2][3] = -n / (f - n);
     m.m[3][3] = 1.0f;
 
     return m;

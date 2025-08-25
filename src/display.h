@@ -28,11 +28,11 @@
 #define PINK 0xFFFF69B4
 #define BROWN 0xFF654321
 
-enum Cull_Method
-{
-    CULL_NONE,
-    CULL_BACKFACE
-};
+#define NUM_COLORS 17
+
+extern uint32_t colors[NUM_COLORS];
+extern uint32_t current_color;
+extern size_t color_index;
 
 enum Render_Method
 {
@@ -40,11 +40,10 @@ enum Render_Method
     RENDER_WIRE_VERTEX,
     RENDER_FILL_TRIANGLE,
     RENDER_FILL_TRIANGLE_WIRE,
-    RENDER_GOURAUD,
-    RENDER_GOURAUD_WIRE
+    RENDER_FILL_TRIANGLE_WIRE_VERTEX
 };
 
-extern enum Cull_Method cull_method;
+extern bool cull;
 extern enum Render_Method render_method;
 
 extern int window_width;
@@ -64,6 +63,7 @@ void animate_rectangles(int num_rects);
 void draw_checker_board(int cell_width, int cell_height, int rows, int cols, uint32_t cell_color_1, uint32_t cell_color_2, uint32_t border_color);
 void draw_line(int x0, int y0, int x1, int y1, uint32_t color);
 void draw_triangle(int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color);
+void draw_filled_circle(int cx, int cy, int r, uint32_t color);
 void clear_color_buffer(uint32_t color);
 void cleanup_rectangles(void);
 void destroy_window(void);

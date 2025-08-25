@@ -25,8 +25,7 @@ triangle_t *triangles_to_render = NULL;
 
 void setup(void)
 {
-	render_method = RENDER_WIRE;
-	cull_method = CULL_BACKFACE;
+	current_color = colors[color_index];
 
 	// Allocate the required memory in bytes to hold the color buffer
 	color_buffer = (uint32_t *)malloc(sizeof(uint32_t) * window_width * window_height);
@@ -65,83 +64,124 @@ void setup(void)
 void process_input(void)
 {
 	SDL_Event event;
-	SDL_PollEvent(&event);
-
-	switch (event.type)
-	{
-	case SDL_QUIT:
-		is_running = false;
-		break;
-	case SDL_KEYDOWN:
-		switch (event.key.keysym.sym)
+	while (SDL_PollEvent(&event))
+	{ // always drain the queue
+		if (event.type == SDL_QUIT)
 		{
-		case SDLK_ESCAPE:
 			is_running = false;
 			break;
-
-		case SDLK_p:
-			paused = !paused;
-			break;
-
-		case SDLK_1:
-			render_method = RENDER_WIRE;
-			break;
-
-		case SDLK_2:
-			render_method = RENDER_WIRE_VERTEX;
-			break;
-
-		case SDLK_3:
-			render_method = RENDER_FILL_TRIANGLE;
-			break;
-
-		case SDLK_4:
-			render_method = RENDER_FILL_TRIANGLE_WIRE;
-			break;
-
-		case SDLK_5:
-			render_method = RENDER_GOURAUD;
-			break;
-
-		case SDLK_6:
-			render_method = RENDER_GOURAUD_WIRE;
-			break;
-
-		case SDLK_c:
-			cull_method = CULL_BACKFACE;
-			break;
-
-		case SDLK_d:
-			cull_method = CULL_NONE;
-			break;
-
-		case SDLK_RIGHT:
-			mesh.translation.x += 0.03;
-			break;
-
-		case SDLK_LEFT:
-			mesh.translation.x -= 0.03;
-			break;
-
-		case SDLK_UP:
-			mesh.translation.y -= 0.03;
-			break;
-
-		case SDLK_DOWN:
-			mesh.translation.y += 0.03;
-			break;
-
-		default:
-			break;
 		}
-		break;
+		if (event.type == SDL_KEYDOWN)
+		{
+			SDL_Keycode k = event.key.keysym.sym;
+
+			if (k == SDLK_ESCAPE)
+			{
+				is_running = false;
+				continue;
+			}
+			if (k == SDLK_p)
+			{
+				paused = !paused;
+				continue;
+			}
+
+			// ignore movement / mode changes while paused
+			if (paused)
+				continue;
+
+			switch (k)
+			{
+			// Select a rendering method
+			case SDLK_1:
+				render_method = RENDER_WIRE;
+				break;
+			case SDLK_2:
+				render_method = RENDER_WIRE_VERTEX;
+				break;
+			case SDLK_3:
+				render_method = RENDER_FILL_TRIANGLE;
+				break;
+			case SDLK_4:
+				render_method = RENDER_FILL_TRIANGLE_WIRE;
+				break;
+			case SDLK_5:
+				render_method = RENDER_FILL_TRIANGLE_WIRE_VERTEX;
+				break;
+
+			// Enable or disable Back-face Culling
+			case SDLK_c:
+				cull = !cull;
+				break;
+
+			// Translate the object
+			case SDLK_RIGHT:
+				mesh.translation.x += 0.03f;
+				break;
+			case SDLK_LEFT:
+				mesh.translation.x -= 0.03f;
+				break;
+			case SDLK_UP:
+				mesh.translation.y -= 0.03f;
+				break;
+			case SDLK_DOWN:
+				mesh.translation.y += 0.03f;
+				break;
+
+			// Grow objects
+			case SDLK_EQUALS:
+				const float MAX_SCALE = 2.0f;
+
+				if (mesh.scale.x < MAX_SCALE)
+					mesh.scale.x += 0.01f;
+				if (mesh.scale.x < MAX_SCALE)
+					mesh.scale.y += 0.01f;
+				if (mesh.scale.x < MAX_SCALE)
+					mesh.scale.z += 0.01f;
+				break;
+			// Shrink objects
+			case SDLK_MINUS:
+				const float MIN_SCALE = 0.01f;
+
+				if (mesh.scale.x > MIN_SCALE)
+					mesh.scale.x -= 0.01f;
+				if (mesh.scale.y > MIN_SCALE)
+					mesh.scale.y -= 0.01f;
+				if (mesh.scale.z > MIN_SCALE)
+					mesh.scale.z -= 0.01f;
+				break;
+
+			// Cycle through different colors for an object
+			case SDLK_m:
+				color_index = (color_index + 1) % NUM_COLORS;
+				current_color = colors[color_index];
+				break;
+			case SDLK_n:
+				color_index = (color_index - 1) % NUM_COLORS;
+				current_color = colors[color_index];
+				break;
+			// Generate a random color for an object
+			case SDLK_r:
+				current_color = generate_random_color();
+				break;
+
+			// Enable or disable lighting
+			case SDLK_l:
+				lighting = !lighting;
+				break;
+			}
+		}
 	}
 }
 
 void update(void)
 {
 	// We have to find the new triangles to render each frame, so we want to start with an empty array
-	triangles_to_render = NULL;
+	if (triangles_to_render)
+	{
+		array_free(triangles_to_render);
+		triangles_to_render = NULL;
+	}
 
 	// Make sure the desired FPS is reached
 	int time_to_wait = FRAME_TARGET_TIME - (SDL_GetTicks() - previous_frame_time);
@@ -180,6 +220,7 @@ void update(void)
 	for (int i = 0; i < num_faces; i++)
 	{
 		face_t mesh_face = mesh.faces[i];
+		mesh_face.color = current_color;
 		vec3_t face_vertices[3];
 
 		// Get the 3 vertices for each face
@@ -219,7 +260,7 @@ void update(void)
 		// Calculate how alligned the camera ray is with the normal
 		float dot_product = vec3_dot(normal, camera_ray);
 
-		if (cull_method == CULL_BACKFACE)
+		if (cull)
 		{
 			if (dot_product <= 0)
 			{
@@ -248,11 +289,19 @@ void update(void)
 		// Calculate the average depth for each face based on the vertices after transformation (Painter's Algorithm)
 		float avg_depth = (transformed_vertices[0].z + transformed_vertices[1].z + transformed_vertices[2].z) / 3.0;
 
+		uint32_t triangle_color;
 		// Flat Shading
-		// Calculate the shade intensity based on how alligned the normal and the inverse of the light ray
-		float light_intensity_factor = -vec3_dot(normal, light.direction);
-		// Calculate the new color
-		uint32_t triangle_color = light_apply_intensity(mesh_face.color, light_intensity_factor);
+		if (lighting)
+		{
+			// Calculate the shade intensity based on how alligned the normal and the inverse of the light ray
+			float light_intensity_factor = -vec3_dot(normal, light.direction);
+			// Calculate the new color
+			triangle_color = light_apply_intensity(mesh_face.color, light_intensity_factor);
+		}
+		else
+		{
+			triangle_color = mesh_face.color;
+		}
 
 		// This will store the final triangle to render
 		triangle_t projected_triangle = {
@@ -291,6 +340,9 @@ void render(void)
 	// Background color
 	clear_color_buffer(BLACK);
 
+	draw_filled_circle(950, 1000, 200, ORANGE);
+	draw_filled_circle(2900, 1000, 200, CYAN);
+
 	int num_triangles = array_length(triangles_to_render);
 
 	// Render each triangle
@@ -299,7 +351,7 @@ void render(void)
 		triangle_t triangle = triangles_to_render[i];
 
 		// Draw a filled triangle
-		if (render_method == RENDER_FILL_TRIANGLE || render_method == RENDER_FILL_TRIANGLE_WIRE)
+		if (render_method == RENDER_FILL_TRIANGLE || render_method == RENDER_FILL_TRIANGLE_WIRE || render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX)
 		{
 			draw_filled_triangle(
 				triangle.points[0].x, triangle.points[0].y,
@@ -309,7 +361,7 @@ void render(void)
 		}
 
 		// Draw an unfilled triangle (wireframe)
-		if (render_method == RENDER_WIRE || render_method == RENDER_WIRE_VERTEX || render_method == RENDER_FILL_TRIANGLE_WIRE)
+		if (render_method == RENDER_WIRE || render_method == RENDER_WIRE_VERTEX || render_method == RENDER_FILL_TRIANGLE_WIRE || render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX)
 		{
 			draw_triangle(
 				triangle.points[0].x, triangle.points[0].y,
@@ -318,17 +370,17 @@ void render(void)
 				WHITE);
 		}
 
-		// Draw the traingle vertices
-		if (render_method == RENDER_WIRE_VERTEX)
+		// Draw the triangle vertices
+		if (render_method == RENDER_WIRE_VERTEX || render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX)
 		{
-			draw_rectangle(triangle.points[0].x - 3, triangle.points[0].y - 3, 6, 6, GREEN);
-			draw_rectangle(triangle.points[1].x, triangle.points[1].y, 6, 6, GREEN);
-			draw_rectangle(triangle.points[2].x, triangle.points[2].y, 6, 6, GREEN);
+			draw_rectangle(triangle.points[0].x - 3, triangle.points[0].y - 3, 7, 7, GREEN);
+			draw_rectangle(triangle.points[1].x - 3, triangle.points[1].y - 3, 7, 7, GREEN);
+			draw_rectangle(triangle.points[2].x - 3, triangle.points[2].y - 3, 7, 7, GREEN);
 		}
 	}
 
-	// Free the triangles, since we have to recalculate them for the next frame
-	array_free(triangles_to_render);
+	draw_filled_circle(1925, 200, 200, GREEN);
+	draw_filled_circle(1925, 1900, 200, YELLOW);
 
 	// Copy the pixel data over to the SDL texture
 	render_color_buffer();
@@ -363,8 +415,8 @@ int main(int argc, char **argv)
 		if (!paused)
 		{
 			update();
-			render();
 		}
+		render();
 	}
 
 	// Used with the animate_rectangles function

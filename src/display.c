@@ -9,7 +9,30 @@ SDL_Renderer *renderer = NULL;
 uint32_t *color_buffer = NULL;
 SDL_Texture *color_buffer_texture = NULL;
 
-enum Cull_Method cull_method;
+uint32_t colors[NUM_COLORS] = {
+	RED,
+	GREEN,
+	BLUE,
+	DARK_BLUE,
+	LIGHT_BLUE,
+	YELLOW,
+	MAGENTA,
+	CYAN,
+	WHITE,
+	BLACK,
+	GRAY,
+	DARK_GRAY,
+	LIGHT_GRAY,
+	ORANGE,
+	PURPLE,
+	PINK,
+	BROWN,
+};
+
+uint32_t current_color;
+size_t color_index = 0;
+
+bool cull = true;
 enum Render_Method render_method;
 
 // Used with the animate_rectangles function
@@ -84,8 +107,6 @@ void draw_pixel(int x, int y, uint32_t color)
 	// Make sure the pixel is in bounds of the window
 	if (x < window_width && x >= 0 && y < window_height && y >= 0)
 		color_buffer[(window_width * y) + x] = color;
-	// else
-	// 	printf("Out of range: (%d, %d)\n", x, y);
 }
 
 void draw_rectangle(int x, int y, int width, int height, uint32_t color)
@@ -281,16 +302,27 @@ void draw_triangle(int x0, int y0, int x1, int y1, int x2, int y2, uint32_t colo
 	draw_line(x2, y2, x0, y0, color);
 }
 
+void draw_filled_circle(int cx, int cy, int r, uint32_t color)
+{
+	int r2 = r * r;
+	for (int y = -r; y <= r; y++)
+	{
+		for (int x = -r; x <= r; x++)
+		{
+			if (x * x + y * y <= r2)
+			{
+				draw_pixel(cx + x, cy + y, color);
+			}
+		}
+	}
+}
+
 void clear_color_buffer(uint32_t color)
 {
-	// Go through each row(y) and each column(x) and set the color of each pixel
-	for (int y = 0; y < window_height; y++)
+	int num_pixels = window_width * window_height;
+	for (int i = 0; i < num_pixels; i++)
 	{
-		for (int x = 0; x < window_width; x++)
-		{
-			// Find the correct offset in the color_buffer for the next pixel
-			color_buffer[(window_width * y) + x] = color;
-		}
+		color_buffer[i] = color;
 	}
 }
 
