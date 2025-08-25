@@ -58,7 +58,7 @@ void setup(void)
 	// Load the mesh in mesh.h
 	// load_cube_mesh_data();
 	//  Load an object via an obj file
-	load_obj_file_data("./assets/cube.obj", RED);
+	load_obj_file_data("./assets/f22.obj", RED);
 }
 
 void process_input(void)
@@ -122,10 +122,10 @@ void process_input(void)
 				mesh.translation.x -= 0.03f;
 				break;
 			case SDLK_UP:
-				mesh.translation.y -= 0.03f;
+				mesh.translation.y += 0.03f;
 				break;
 			case SDLK_DOWN:
-				mesh.translation.y += 0.03f;
+				mesh.translation.y -= 0.03f;
 				break;
 
 			// Grow objects
@@ -195,7 +195,7 @@ void update(void)
 	mesh.rotation.x += 0.005;
 	mesh.rotation.y += 0.005;
 	mesh.rotation.z += 0.005;
-	// Translate the vertex away from the camera
+	//    Translate the vertex away from the camera
 	mesh.translation.z = 5.0;
 
 	// Create a scale, translation, and rotation matrix that will be used to transform our mesh vertices
@@ -280,6 +280,10 @@ void update(void)
 			// Scale each vertex, which will end up scaling the object
 			projected_points[j].x *= (window_width / 2.0);
 			projected_points[j].y *= (window_height / 2.0);
+
+			// Invert the y-axis to account for y growing top-down
+			projected_points[j].y *= -1;
+
 			// Translate each vertex so that they are inside our window
 			projected_points[j].x += (window_width / 2.0);
 			projected_points[j].y += (window_height / 2.0);
