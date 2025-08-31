@@ -9,24 +9,24 @@
 // This is how long each frame should last
 #define FRAME_TARGET_TIME (1000 / FPS)
 
-// Colors in the ARGB color space
-#define RED 0xFFFF0000
-#define GREEN 0xFF00FF00
-#define BLUE 0xFF0000FF
-#define DARK_BLUE 0xFF151C62
-#define LIGHT_BLUE 0xFFADD8E6
-#define YELLOW 0xFFFFFF00
-#define MAGENTA 0xFFFF00FF
-#define CYAN 0xFF00FFFF
-#define WHITE 0xFFFFFFFF
-#define BLACK 0xFF000000
-#define GRAY 0xFF808080
-#define DARK_GRAY 0xFF404040
+// ABGR8888 (for SDL_PIXELFORMAT_RGBA32 on little-endian)
+#define RED        0xFF0000FF
+#define GREEN      0xFF00FF00
+#define BLUE       0xFFFF0000
+#define DARK_BLUE  0xFF621C15
+#define LIGHT_BLUE 0xFFE6D8AD
+#define YELLOW     0xFF00FFFF
+#define MAGENTA    0xFFFF00FF
+#define CYAN       0xFFFFFF00
+#define WHITE      0xFFFFFFFF
+#define BLACK      0xFF000000
+#define GRAY       0xFF808080
+#define DARK_GRAY  0xFF404040
 #define LIGHT_GRAY 0xFFC0C0C0
-#define ORANGE 0xFFFFA500
-#define PURPLE 0xFF800080
-#define PINK 0xFFFF69B4
-#define BROWN 0xFF654321
+#define ORANGE     0xFF00A5FF
+#define PURPLE     0xFF800080
+#define PINK       0xFFB469FF
+#define BROWN      0xFF214365
 
 #define NUM_COLORS 17
 
@@ -40,7 +40,10 @@ enum Render_Method
     RENDER_WIRE_VERTEX,
     RENDER_FILL_TRIANGLE,
     RENDER_FILL_TRIANGLE_WIRE,
-    RENDER_FILL_TRIANGLE_WIRE_VERTEX
+    RENDER_FILL_TRIANGLE_WIRE_VERTEX,
+    RENDER_TEXTURED,
+    RENDER_TEXTURED_WIRE,
+    RENDER_TEXTURED_WIRE_VERTEX
 };
 
 extern bool cull;
@@ -58,11 +61,11 @@ void render_color_buffer(void);
 void draw_pixel(int x, int y, uint32_t color);
 void draw_rectangle(int x, int y, int width, int height, uint32_t color);
 void draw_grid(int x, int y, int width, int height, int line_spacing, uint32_t color);
+void draw_dotted_grid(int x, int y, int width, int height, int dot_spacing, uint32_t color);
 uint32_t generate_random_color(void);
 void animate_rectangles(int num_rects);
 void draw_checker_board(int cell_width, int cell_height, int rows, int cols, uint32_t cell_color_1, uint32_t cell_color_2, uint32_t border_color);
 void draw_line(int x0, int y0, int x1, int y1, uint32_t color);
-void draw_triangle(int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color);
 void draw_filled_circle(int cx, int cy, int r, uint32_t color);
 void clear_color_buffer(uint32_t color);
 void cleanup_rectangles(void);

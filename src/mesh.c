@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "mesh.h"
 #include "array.h"
 #include "display.h"
@@ -25,23 +26,23 @@ vec3_t cube_vertices[N_CUBE_VERTICES] = {
 
 face_t cube_faces[N_CUBE_FACES] = {
     // front
-    {.a = 1, .b = 2, .c = 3, .color = WHITE},
-    {.a = 1, .b = 3, .c = 4, .color = WHITE},
+    {.a = 1, .b = 2, .c = 3, .a_uv = {0, 0}, .b_uv = {0, 1}, .c_uv = {1, 1}, .color = RED},
+    {.a = 1, .b = 3, .c = 4, .a_uv = {0, 0}, .b_uv = {1, 1}, .c_uv = {1, 0}, .color = RED},
     // right
-    {.a = 4, .b = 3, .c = 5, .color = WHITE},
-    {.a = 4, .b = 5, .c = 6, .color = WHITE},
+    {.a = 4, .b = 3, .c = 5, .a_uv = {0, 0}, .b_uv = {0, 1}, .c_uv = {1, 1}, .color = RED},
+    {.a = 4, .b = 5, .c = 6, .a_uv = {0, 0}, .b_uv = {1, 1}, .c_uv = {1, 0}, .color = RED},
     // back
-    {.a = 6, .b = 5, .c = 7, .color = WHITE},
-    {.a = 6, .b = 7, .c = 8, .color = WHITE},
+    {.a = 6, .b = 5, .c = 7, .a_uv = {0, 0}, .b_uv = {0, 1}, .c_uv = {1, 1}, .color = RED},
+    {.a = 6, .b = 7, .c = 8, .a_uv = {0, 0}, .b_uv = {1, 1}, .c_uv = {1, 0}, .color = RED},
     // left
-    {.a = 8, .b = 7, .c = 2, .color = WHITE},
-    {.a = 8, .b = 2, .c = 1, .color = WHITE},
+    {.a = 8, .b = 7, .c = 2, .a_uv = {0, 0}, .b_uv = {0, 1}, .c_uv = {1, 1}, .color = RED},
+    {.a = 8, .b = 2, .c = 1, .a_uv = {0, 0}, .b_uv = {1, 1}, .c_uv = {1, 0}, .color = RED},
     // top
-    {.a = 2, .b = 7, .c = 5, .color = WHITE},
-    {.a = 2, .b = 5, .c = 3, .color = WHITE},
+    {.a = 2, .b = 7, .c = 5, .a_uv = {0, 0}, .b_uv = {0, 1}, .c_uv = {1, 1}, .color = RED},
+    {.a = 2, .b = 5, .c = 3, .a_uv = {0, 0}, .b_uv = {1, 1}, .c_uv = {1, 0}, .color = RED},
     // bottom
-    {.a = 6, .b = 8, .c = 1, .color = WHITE},
-    {.a = 6, .b = 1, .c = 4, .color = WHITE}};
+    {.a = 6, .b = 8, .c = 1, .a_uv = {0, 0}, .b_uv = {0, 1}, .c_uv = {1, 1}, .color = RED},
+    {.a = 6, .b = 1, .c = 4, .a_uv = {0, 0}, .b_uv = {1, 1}, .c_uv = {1, 0}, .color = RED}};
 
 void load_cube_mesh_data(void)
 {
@@ -58,42 +59,53 @@ void load_cube_mesh_data(void)
     }
 }
 
-void load_obj_file_data(char *path, uint32_t obj_color)
+void load_obj_file_data(const char* filename, uint32_t obj_color)
 {
-    FILE *f = fopen(path, "r");
-    if (!f)
+    FILE* file;
+    file = fopen(filename, "r");
+    char line[1024];
+
+    tex2_t* texcoords = NULL;
+
+    while (fgets(line, 1024, file))
     {
-        perror(path);
-        exit(EXIT_FAILURE);
-    }
-
-    char line[256];
-    while (fgets(line, sizeof line, f))
-    {
-        if (line[0] == '#' || line[0] == '\n')
-            continue;
-
-        if (line[0] == 'v' && (line[1] == ' '))
+        // Vertex information
+        if (strncmp(line, "v ", 2) == 0)
         {
-            vec3_t v;
-
-            if (sscanf(line + 2, "%f %f %f", &v.x, &v.y, &v.z) == 3)
-            {
-                array_push(mesh.vertices, v);
-            }
+            vec3_t vertex;
+            sscanf(line, "v %f %f %f", &vertex.x, &vertex.y, &vertex.z);
+            array_push(mesh.vertices, vertex);
         }
-
-        if (line[0] == 'f')
+        // Texture coordinate information
+        if (strncmp(line, "vt ", 3) == 0)
         {
-            face_t face;
-            face.color = obj_color;
-
-            if (sscanf(line + 2, "%d/%*d/%*d  %d/%*d/%*d  %d/%*d/%*d",
-                       &face.a, &face.b, &face.c) == 3)
-            {
-                array_push(mesh.faces, face);
-            }
+            tex2_t texcoord;
+            sscanf(line, "vt %f %f", &texcoord.u, &texcoord.v);
+            array_push(texcoords, texcoord);
+        }
+        // Face information
+        if (strncmp(line, "f ", 2) == 0)
+        {
+            int vertex_indices[3];
+            int texture_indices[3];
+            int normal_indices[3];
+            sscanf(
+                line, "f %d/%d/%d %d/%d/%d %d/%d/%d",
+                &vertex_indices[0], &texture_indices[0], &normal_indices[0],
+                &vertex_indices[1], &texture_indices[1], &normal_indices[1],
+                &vertex_indices[2], &texture_indices[2], &normal_indices[2]
+            );
+            face_t face = {
+                .a = vertex_indices[0],
+                .b = vertex_indices[1],
+                .c = vertex_indices[2],
+                .a_uv = texcoords[texture_indices[0] - 1],
+                .b_uv = texcoords[texture_indices[1] - 1],
+                .c_uv = texcoords[texture_indices[2] - 1],
+                .color = obj_color
+            };
+            array_push(mesh.faces, face);
         }
     }
-    fclose(f);
+    array_free(texcoords);
 }

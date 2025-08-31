@@ -21,4 +21,4 @@ typedef struct {
 extern mesh_t mesh;
 
 void load_cube_mesh_data(void);
-void load_obj_file_data(char *path, uint32_t obj_color);
+void load_obj_file_data(const char *filepath, uint32_t obj_color);

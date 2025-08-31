@@ -84,7 +84,7 @@ void vec3_normalize(vec3_t *v)
     v->z /= length;
 }
 
-vec3_t cross(vec3_t a, vec3_t b)
+vec3_t vec3_cross(vec3_t a, vec3_t b)
 {
     vec3_t result;
 
@@ -135,5 +135,11 @@ vec4_t vec4_from_vec3(vec3_t v)
 vec3_t vec3_from_vec4(vec4_t v)
 {
     vec3_t result = {v.x, v.y, v.z};
+    return result;
+}
+
+vec2_t vec2_from_vec4(vec4_t v)
+{
+    vec2_t result = {v.x, v.y};
     return result;
 }

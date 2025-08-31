@@ -1,9 +1,10 @@
 #include "display.h"
 #include <time.h>
 #include <math.h>
+#include <stdio.h>
 
-int window_width = 800;
-int window_height = 600;
+int window_width = 2000;
+int window_height = 1600;
 SDL_Window *window = NULL;
 SDL_Renderer *renderer = NULL;
 uint32_t *color_buffer = NULL;
@@ -55,12 +56,12 @@ bool initialize_window(void)
 	}
 
 	// Use SDL to query what the max width and height of our screen is
-	SDL_DisplayMode display_mode;
-	SDL_GetCurrentDisplayMode(0, &display_mode);
+	// SDL_DisplayMode display_mode;
+	// SDL_GetCurrentDisplayMode(0, &display_mode);
 
-	// Set the window's width and height to the monitor's width and height
-	window_width = display_mode.w;
-	window_height = display_mode.h;
+	// // // Set the window's width and height to the monitor's width and height
+	// window_width = display_mode.w;
+	// window_height = display_mode.h;
 
 	// Create SDL window
 	window = SDL_CreateWindow(
@@ -85,7 +86,7 @@ bool initialize_window(void)
 	}
 
 	// This changes the video mode to fullscreen
-	SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
 
 	return true;
 }
@@ -132,6 +133,24 @@ void draw_grid(int x, int y, int width, int height, int line_spacing, uint32_t c
 			int current_y = y + i;
 
 			if ((current_y % line_spacing == 0) || (current_x % line_spacing == 0))
+			{
+				draw_pixel(current_x, current_y, color);
+			}
+		}
+	}
+}
+
+void draw_dotted_grid(int x, int y, int width, int height, int dot_spacing, uint32_t color)
+{
+	for (int i = 0; i < height; i++)
+	{
+		for (int j = 0; j < width; j++)
+		{
+			// We always add x/y, since that is the starting horizontal/vertical position of the rectangle
+			int current_x = x + j;
+			int current_y = y + i;
+
+			if ((current_y % dot_spacing == 0) && (current_x % dot_spacing == 0))
 			{
 				draw_pixel(current_x, current_y, color);
 			}
@@ -293,13 +312,6 @@ void draw_line(int x0, int y0, int x1, int y1, uint32_t color)
 		current_x += x_inc;
 		current_y += y_inc;
 	}
-}
-
-void draw_triangle(int x0, int y0, int x1, int y1, int x2, int y2, uint32_t color)
-{
-	draw_line(x0, y0, x1, y1, color);
-	draw_line(x1, y1, x2, y2, color);
-	draw_line(x2, y2, x0, y0, color);
 }
 
 void draw_filled_circle(int cx, int cy, int r, uint32_t color)

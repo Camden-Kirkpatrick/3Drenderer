@@ -1,15 +1,18 @@
-﻿#include <stdio.h>
+﻿#include <SDL2/SDL.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <time.h>
 #include <stdlib.h>
-#include <SDL2/SDL.h>
 #include "display.h"
 #include "vector.h"
+#include "triangle.h"
 #include "mesh.h"
 #include "array.h"
 #include "matrix.h"
 #include "light.h"
+#include "texture.h"
+#include "upng.h"
 
 bool is_running = false;
 bool paused = false;
@@ -21,7 +24,9 @@ mat4_t proj_matrix;
 triangle_t *triangles_to_render = NULL;
 
 // Used with the animate_rectangles function
-// int rect_count = 1;
+int rect_count = 1;
+
+int arrow_key_mode = 0;
 
 void setup(void)
 {
@@ -31,12 +36,15 @@ void setup(void)
 	color_buffer = (uint32_t *)malloc(sizeof(uint32_t) * window_width * window_height);
 
 	// Creating an SDL texture that is used to display the color buffer
-	color_buffer_texture = SDL_CreateTexture(
+	color_buffer_texture = 
+	SDL_CreateTexture
+	(
 		renderer,
-		SDL_PIXELFORMAT_ARGB8888,
+		SDL_PIXELFORMAT_RGBA32,
 		SDL_TEXTUREACCESS_STREAMING,
 		window_width,
-		window_height);
+		window_height
+	);
 
 	// Projection Matrix for Perspective Projeciton
 	float fov = M_PI / 3.0; // 60 degree fov
@@ -45,20 +53,12 @@ void setup(void)
 	float zfar = 100.0;
 	proj_matrix = mat4_make_perspective(fov, aspect_ratio, znear, zfar);
 
-	// Projection Matrix for Orthographic Projection
-	// float ortho_left = -1.0f;
-	// float ortho_right = 1.0f;
-	// float ortho_bottom = -1.0f;
-	// float ortho_top = 1.0f;
-	// proj_matrix = mat4_make_orthographic(
-	// 	ortho_left, ortho_right,
-	// 	ortho_bottom, ortho_top,
-	// 	znear, zfar);
-
 	// Load the mesh in mesh.h
-	// load_cube_mesh_data();
-	//  Load an object via an obj file
-	load_obj_file_data("./assets/f22.obj", RED);
+	//load_cube_mesh_data();
+	// Load an object via an obj file
+	load_obj_file_data("./assets/f117.obj", RED);
+
+	load_png_texture_data("./assets/f117.png");
 }
 
 void process_input(void)
@@ -108,24 +108,59 @@ void process_input(void)
 			case SDLK_5:
 				render_method = RENDER_FILL_TRIANGLE_WIRE_VERTEX;
 				break;
+			case SDLK_6:
+				render_method = RENDER_TEXTURED;
+				break;
+			case SDLK_7:
+				render_method = RENDER_TEXTURED_WIRE;
+				break;
+			case SDLK_8:
+				render_method = RENDER_TEXTURED_WIRE_VERTEX;
+				break;
 
 			// Enable or disable Back-face Culling
 			case SDLK_c:
 				cull = !cull;
 				break;
 
-			// Translate the object
-			case SDLK_RIGHT:
-				mesh.translation.x += 0.03f;
+			// Toggle between modes for translating and rotating
+			case SDLK_a:
+				arrow_key_mode = (arrow_key_mode == 0 ? 1 : 0);
+			
+			// Translate or Rotate the object depending on the current mode
+			if (arrow_key_mode == 0)
+			{
+				case SDLK_UP:
+					if (arrow_key_mode == 0)
+						mesh.translation.x += 0.03f;
+					else
+						mesh.rotation.x += 0.05f;
+					break;
+				case SDLK_DOWN:
+					if (arrow_key_mode == 0)
+						mesh.translation.x -= 0.03f;
+					else
+						mesh.rotation.x -= 0.05f;
+					break;
+				case SDLK_RIGHT:
+					if (arrow_key_mode == 0)
+						mesh.translation.y += 0.03f;
+					else
+						mesh.rotation.y += 0.05f;
+					break;
+				case SDLK_LEFT:
+					if (arrow_key_mode == 0)
+						mesh.translation.y -= 0.03f;
+					else
+						mesh.rotation.y -= 0.05f;
+					break;
+			}
+
+			case SDLK_k:
+				mesh.rotation.z += 0.05f;
 				break;
-			case SDLK_LEFT:
-				mesh.translation.x -= 0.03f;
-				break;
-			case SDLK_UP:
-				mesh.translation.y += 0.03f;
-				break;
-			case SDLK_DOWN:
-				mesh.translation.y -= 0.03f;
+			case SDLK_j:
+				mesh.rotation.z -= 0.05f;
 				break;
 
 			// Grow objects
@@ -192,10 +227,10 @@ void update(void)
 	previous_frame_time = SDL_GetTicks();
 
 	// Change the mesh rotation/scale values per animation frame
-	mesh.rotation.x += 0.005;
-	mesh.rotation.y += 0.005;
-	mesh.rotation.z += 0.005;
-	//    Translate the vertex away from the camera
+	// mesh.rotation.x += 0.005;
+	//mesh.rotation.y += 0.05;
+	// mesh.rotation.z += 0.005;
+	// Translate the vertex away from the camera
 	mesh.translation.z = 5.0;
 
 	// Create a scale, translation, and rotation matrix that will be used to transform our mesh vertices
@@ -251,7 +286,7 @@ void update(void)
 		vec3_t vec_ac = vec3_sub(vec_c, vec_a);
 
 		// Compute the normal
-		vec3_t normal = cross(vec_ab, vec_ac);
+		vec3_t normal = vec3_cross(vec_ab, vec_ac);
 		vec3_normalize(&normal);
 
 		// Find the camera_ray from point A to the camera
@@ -274,15 +309,13 @@ void update(void)
 		{
 			// Project the vertex
 			projected_points[j] = mat4_mul_vec4_project(proj_matrix, transformed_vertices[j]);
-			// This is for Orthographic Projection
-			// projected_points[j] = mat4_mul_vec4(proj_matrix, transformed_vertices[j]);
+
+			// Invert the y-axis to account for y growing top-down
+			projected_points[j].y *= -1;
 
 			// Scale each vertex, which will end up scaling the object
 			projected_points[j].x *= (window_width / 2.0);
 			projected_points[j].y *= (window_height / 2.0);
-
-			// Invert the y-axis to account for y growing top-down
-			projected_points[j].y *= -1;
 
 			// Translate each vertex so that they are inside our window
 			projected_points[j].x += (window_width / 2.0);
@@ -310,10 +343,18 @@ void update(void)
 		// This will store the final triangle to render
 		triangle_t projected_triangle = {
 			// Save each projected vertex in the triangle
-			.points = {
-				{projected_points[0].x, projected_points[0].y},
-				{projected_points[1].x, projected_points[1].y},
-				{projected_points[2].x, projected_points[2].y}},
+			.points =
+			{
+				{projected_points[0].x, projected_points[0].y, projected_points[0].z, projected_points[0].w},
+				{projected_points[1].x, projected_points[1].y, projected_points[1].z, projected_points[1].w},
+				{projected_points[2].x, projected_points[2].y, projected_points[2].z, projected_points[2].w}
+			},
+			.texcoords =
+			{
+				{mesh_face.a_uv.u, mesh_face.a_uv.v},
+				{mesh_face.b_uv.u, mesh_face.b_uv.v},
+				{mesh_face.c_uv.u, mesh_face.c_uv.v}
+			},
 			.color = triangle_color,
 			.avg_depth = avg_depth};
 
@@ -344,8 +385,8 @@ void render(void)
 	// Background color
 	clear_color_buffer(BLACK);
 
-	draw_filled_circle(950, 1000, 200, ORANGE);
-	draw_filled_circle(2900, 1000, 200, CYAN);
+	// draw_filled_circle(950, 1000, 200, ORANGE);
+	// draw_filled_circle(2900, 1000, 200, CYAN);
 
 	int num_triangles = array_length(triangles_to_render);
 
@@ -357,25 +398,41 @@ void render(void)
 		// Draw a filled triangle
 		if (render_method == RENDER_FILL_TRIANGLE || render_method == RENDER_FILL_TRIANGLE_WIRE || render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX)
 		{
-			draw_filled_triangle(
+			draw_filled_triangle
+			(
 				triangle.points[0].x, triangle.points[0].y,
 				triangle.points[1].x, triangle.points[1].y,
 				triangle.points[2].x, triangle.points[2].y,
-				triangle.color);
+				triangle.color
+			);
+		}
+
+		if (render_method == RENDER_TEXTURED || render_method == RENDER_TEXTURED_WIRE || render_method == RENDER_TEXTURED_WIRE_VERTEX)
+		{
+			// We need to pass in the z and w components too, so we can have a perspective correct texture
+			draw_textured_triangle
+			(
+				mesh_texture,
+				triangle.points[0].x, triangle.points[0].y, triangle.points[0].z, triangle.points[0].w, triangle.texcoords[0].u, triangle.texcoords[0].v,
+				triangle.points[1].x, triangle.points[1].y, triangle.points[1].z, triangle.points[1].w, triangle.texcoords[1].u, triangle.texcoords[1].v,
+				triangle.points[2].x, triangle.points[2].y, triangle.points[2].z, triangle.points[2].w, triangle.texcoords[2].u, triangle.texcoords[2].v
+			);
 		}
 
 		// Draw an unfilled triangle (wireframe)
-		if (render_method == RENDER_WIRE || render_method == RENDER_WIRE_VERTEX || render_method == RENDER_FILL_TRIANGLE_WIRE || render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX)
+		if (render_method == RENDER_WIRE || render_method == RENDER_WIRE_VERTEX || render_method == RENDER_FILL_TRIANGLE_WIRE || render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX || render_method == RENDER_TEXTURED_WIRE || render_method == RENDER_TEXTURED_WIRE_VERTEX)
 		{
-			draw_triangle(
+			draw_triangle
+			(
 				triangle.points[0].x, triangle.points[0].y,
 				triangle.points[1].x, triangle.points[1].y,
 				triangle.points[2].x, triangle.points[2].y,
-				WHITE);
+				WHITE
+			);
 		}
 
 		// Draw the triangle vertices
-		if (render_method == RENDER_WIRE_VERTEX || render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX)
+		if (render_method == RENDER_WIRE_VERTEX || render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX || render_method == RENDER_TEXTURED_WIRE_VERTEX)
 		{
 			draw_rectangle(triangle.points[0].x - 3, triangle.points[0].y - 3, 7, 7, GREEN);
 			draw_rectangle(triangle.points[1].x - 3, triangle.points[1].y - 3, 7, 7, GREEN);
@@ -383,8 +440,12 @@ void render(void)
 		}
 	}
 
-	draw_filled_circle(1925, 200, 200, GREEN);
-	draw_filled_circle(1925, 1900, 200, YELLOW);
+	// draw_dotted_grid(0, 0, window_width - 1, window_height - 1, 42, RED);
+
+	// draw_filled_circle(1925, 200, 200, GREEN);
+	// draw_filled_circle(1925, 1900, 200, YELLOW);
+
+	// animate_rectangles(rect_count);
 
 	// Copy the pixel data over to the SDL texture
 	render_color_buffer();
@@ -398,6 +459,7 @@ void free_resources(void)
 	free(color_buffer);
 	array_free(mesh.faces);
 	array_free(mesh.vertices);
+	upng_free(png_texture);
 }
 
 int main(int argc, char **argv)
