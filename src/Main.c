@@ -32,8 +32,9 @@ void setup(void)
 {
 	current_color = colors[color_index];
 
-	// Allocate the required memory in bytes to hold the color buffer
-	color_buffer = (uint32_t *)malloc(sizeof(uint32_t) * window_width * window_height);
+	// Allocate the required memory in bytes to hold the color buffer and z-buffer
+	color_buffer = (uint32_t*)malloc(sizeof(uint32_t) * window_width * window_height);
+	z_buffer = (float*)malloc(sizeof(float) * window_width * window_height);
 
 	// Creating an SDL texture that is used to display the color buffer
 	color_buffer_texture = 
@@ -56,9 +57,9 @@ void setup(void)
 	// Load the mesh in mesh.h
 	//load_cube_mesh_data();
 	// Load an object via an obj file
-	load_obj_file_data("./assets/f117.obj", RED);
+	load_obj_file_data("./assets/drone.obj", RED);
 
-	load_png_texture_data("./assets/f117.png");
+	load_png_texture_data("./assets/drone.png");
 }
 
 void process_input(void)
@@ -130,25 +131,25 @@ void process_input(void)
 			// Translate or Rotate the object depending on the current mode
 			if (arrow_key_mode == 0)
 			{
-				case SDLK_UP:
+				case SDLK_RIGHT:
 					if (arrow_key_mode == 0)
 						mesh.translation.x += 0.03f;
 					else
 						mesh.rotation.x += 0.05f;
 					break;
-				case SDLK_DOWN:
+				case SDLK_LEFT:
 					if (arrow_key_mode == 0)
 						mesh.translation.x -= 0.03f;
 					else
 						mesh.rotation.x -= 0.05f;
 					break;
-				case SDLK_RIGHT:
+				case SDLK_UP:
 					if (arrow_key_mode == 0)
 						mesh.translation.y += 0.03f;
 					else
 						mesh.rotation.y += 0.05f;
 					break;
-				case SDLK_LEFT:
+				case SDLK_DOWN:
 					if (arrow_key_mode == 0)
 						mesh.translation.y -= 0.03f;
 					else
@@ -227,9 +228,9 @@ void update(void)
 	previous_frame_time = SDL_GetTicks();
 
 	// Change the mesh rotation/scale values per animation frame
-	// mesh.rotation.x += 0.005;
-	//mesh.rotation.y += 0.05;
-	// mesh.rotation.z += 0.005;
+	mesh.rotation.x += 0.005;
+	mesh.rotation.y += 0.005;
+	mesh.rotation.z += 0.005;
 	// Translate the vertex away from the camera
 	mesh.translation.z = 5.0;
 
@@ -322,10 +323,6 @@ void update(void)
 			projected_points[j].y += (window_height / 2.0);
 		}
 
-		// Painter's Algorithm
-		// Calculate the average depth for each face based on the vertices after transformation (Painter's Algorithm)
-		float avg_depth = (transformed_vertices[0].z + transformed_vertices[1].z + transformed_vertices[2].z) / 3.0;
-
 		uint32_t triangle_color;
 		// Flat Shading
 		if (lighting)
@@ -356,27 +353,10 @@ void update(void)
 				{mesh_face.c_uv.u, mesh_face.c_uv.v}
 			},
 			.color = triangle_color,
-			.avg_depth = avg_depth};
+		};
 
 		// Add the projected triangle to the array of traingles to render
 		array_push(triangles_to_render, projected_triangle);
-	}
-
-	// Painter's Algorithm continued
-	// Sort the triangles to render by their avg_depth
-	int num_triangles = array_length(triangles_to_render);
-	for (int i = 0; i < num_triangles; i++)
-	{
-		for (int j = i; j < num_triangles; j++)
-		{
-			if (triangles_to_render[i].avg_depth < triangles_to_render[j].avg_depth)
-			{
-				// Swap the triangles positions in the array
-				triangle_t temp = triangles_to_render[i];
-				triangles_to_render[i] = triangles_to_render[j];
-				triangles_to_render[j] = temp;
-			}
-		}
 	}
 }
 
@@ -384,6 +364,7 @@ void render(void)
 {
 	// Background color
 	clear_color_buffer(BLACK);
+	clear_z_buffer();
 
 	// draw_filled_circle(950, 1000, 200, ORANGE);
 	// draw_filled_circle(2900, 1000, 200, CYAN);
@@ -400,9 +381,9 @@ void render(void)
 		{
 			draw_filled_triangle
 			(
-				triangle.points[0].x, triangle.points[0].y,
-				triangle.points[1].x, triangle.points[1].y,
-				triangle.points[2].x, triangle.points[2].y,
+				triangle.points[0].x, triangle.points[0].y, triangle.points[0].z, triangle.points[0].w,
+				triangle.points[1].x, triangle.points[1].y, triangle.points[1].z, triangle.points[1].w,
+				triangle.points[2].x, triangle.points[2].y, triangle.points[2].z, triangle.points[2].w,
 				triangle.color
 			);
 		}
@@ -457,6 +438,7 @@ void render(void)
 void free_resources(void)
 {
 	free(color_buffer);
+	free(z_buffer);
 	array_free(mesh.faces);
 	array_free(mesh.vertices);
 	upng_free(png_texture);

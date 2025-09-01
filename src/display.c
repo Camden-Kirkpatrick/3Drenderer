@@ -7,8 +7,10 @@ int window_width = 2000;
 int window_height = 1600;
 SDL_Window *window = NULL;
 SDL_Renderer *renderer = NULL;
-uint32_t *color_buffer = NULL;
 SDL_Texture *color_buffer_texture = NULL;
+
+uint32_t *color_buffer = NULL;
+float *z_buffer = NULL;
 
 uint32_t colors[NUM_COLORS] = {
 	RED,
@@ -335,6 +337,15 @@ void clear_color_buffer(uint32_t color)
 	for (int i = 0; i < num_pixels; i++)
 	{
 		color_buffer[i] = color;
+	}
+}
+
+void clear_z_buffer(void)
+{
+	int num_pixels = window_width * window_height;
+	for (int i = 0; i < num_pixels; i++)
+	{
+		z_buffer[i] = 1.0f;
 	}
 }
 
