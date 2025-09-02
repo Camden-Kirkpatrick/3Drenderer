@@ -58,12 +58,12 @@ bool initialize_window(void)
 	}
 
 	// Use SDL to query what the max width and height of our screen is
-	// SDL_DisplayMode display_mode;
-	// SDL_GetCurrentDisplayMode(0, &display_mode);
+	SDL_DisplayMode display_mode;
+	SDL_GetCurrentDisplayMode(0, &display_mode);
 
-	// // // Set the window's width and height to the monitor's width and height
-	// window_width = display_mode.w;
-	// window_height = display_mode.h;
+	// // Set the window's width and height to the monitor's width and height
+	window_width = display_mode.w;
+	window_height = display_mode.h;
 
 	// Create SDL window
 	window = SDL_CreateWindow(
@@ -88,7 +88,7 @@ bool initialize_window(void)
 	}
 
 	// This changes the video mode to fullscreen
-	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+	SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
 
 	return true;
 }

@@ -21,7 +21,11 @@ int previous_frame_time = 0;
 vec3_t camera_position = {0, 0, 0};
 mat4_t proj_matrix;
 
-triangle_t *triangles_to_render = NULL;
+//triangle_t *triangles_to_render = NULL;
+
+#define MAX_TRIANGLES 10000
+triangle_t triangles_to_render[MAX_TRIANGLES];
+int num_triangles_to_render = 0;
 
 // Used with the animate_rectangles function
 int rect_count = 1;
@@ -57,9 +61,9 @@ void setup(void)
 	// Load the mesh in mesh.h
 	//load_cube_mesh_data();
 	// Load an object via an obj file
-	load_obj_file_data("./assets/drone.obj", RED);
+	load_obj_file_data("./assets/f117.obj", RED);
 
-	load_png_texture_data("./assets/drone.png");
+	load_png_texture_data("./assets/f117.png");
 }
 
 void process_input(void)
@@ -127,7 +131,8 @@ void process_input(void)
 			// Toggle between modes for translating and rotating
 			case SDLK_a:
 				arrow_key_mode = (arrow_key_mode == 0 ? 1 : 0);
-			
+				break;
+				
 			// Translate or Rotate the object depending on the current mode
 			if (arrow_key_mode == 0)
 			{
@@ -213,11 +218,11 @@ void process_input(void)
 void update(void)
 {
 	// We have to find the new triangles to render each frame, so we want to start with an empty array
-	if (triangles_to_render)
-	{
-		array_free(triangles_to_render);
-		triangles_to_render = NULL;
-	}
+	// if (triangles_to_render)
+	// {
+	// 	array_free(triangles_to_render);
+	// 	triangles_to_render = NULL;
+	// }
 
 	// Make sure the desired FPS is reached
 	int time_to_wait = FRAME_TARGET_TIME - (SDL_GetTicks() - previous_frame_time);
@@ -227,10 +232,12 @@ void update(void)
 
 	previous_frame_time = SDL_GetTicks();
 
+	num_triangles_to_render = 0;
+
 	// Change the mesh rotation/scale values per animation frame
-	mesh.rotation.x += 0.005;
-	mesh.rotation.y += 0.005;
-	mesh.rotation.z += 0.005;
+	// mesh.rotation.x += 0.005;
+	// mesh.rotation.y += 0.005;
+	// mesh.rotation.z += 0.005;
 	// Translate the vertex away from the camera
 	mesh.translation.z = 5.0;
 
@@ -355,8 +362,13 @@ void update(void)
 			.color = triangle_color,
 		};
 
+        // Save the projected triangle in the array of triangles to render
+        if (num_triangles_to_render < MAX_TRIANGLES) {
+            triangles_to_render[num_triangles_to_render++] = projected_triangle;
+        }
+
 		// Add the projected triangle to the array of traingles to render
-		array_push(triangles_to_render, projected_triangle);
+		//array_push(triangles_to_render, projected_triangle);
 	}
 }
 
@@ -369,7 +381,8 @@ void render(void)
 	// draw_filled_circle(950, 1000, 200, ORANGE);
 	// draw_filled_circle(2900, 1000, 200, CYAN);
 
-	int num_triangles = array_length(triangles_to_render);
+	//int num_triangles = array_length(triangles_to_render);
+	int num_triangles = num_triangles_to_render;
 
 	// Render each triangle
 	for (int i = 0; i < num_triangles; i++)
@@ -415,9 +428,9 @@ void render(void)
 		// Draw the triangle vertices
 		if (render_method == RENDER_WIRE_VERTEX || render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX || render_method == RENDER_TEXTURED_WIRE_VERTEX)
 		{
-			draw_rectangle(triangle.points[0].x - 3, triangle.points[0].y - 3, 7, 7, GREEN);
-			draw_rectangle(triangle.points[1].x - 3, triangle.points[1].y - 3, 7, 7, GREEN);
-			draw_rectangle(triangle.points[2].x - 3, triangle.points[2].y - 3, 7, 7, GREEN);
+			draw_rectangle(triangle.points[0].x - 1, triangle.points[0].y - 1, 3, 3, GREEN);
+			draw_rectangle(triangle.points[1].x - 1, triangle.points[1].y - 1, 3, 3, GREEN);
+			draw_rectangle(triangle.points[2].x - 1, triangle.points[2].y - 1, 3, 3, GREEN);
 		}
 	}
 
