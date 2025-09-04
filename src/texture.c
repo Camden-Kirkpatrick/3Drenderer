@@ -1,4 +1,5 @@
 #include "texture.h"
+#include <stdio.h>
 
 uint32_t* mesh_texture = NULL;
 upng_t* png_texture = NULL;

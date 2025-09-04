@@ -316,12 +316,12 @@ void draw_line(int x0, int y0, int x1, int y1, uint32_t color)
 	}
 }
 
-void draw_filled_circle(int cx, int cy, int r, uint32_t color)
+void draw_filled_circle(int cx, int cy, int rad, uint32_t color)
 {
-	int r2 = r * r;
-	for (int y = -r; y <= r; y++)
+	int r2 = rad * rad;
+	for (int y = -rad; y <= rad; y++)
 	{
-		for (int x = -r; x <= r; x++)
+		for (int x = -rad; x <= rad; x++)
 		{
 			if (x * x + y * y <= r2)
 			{

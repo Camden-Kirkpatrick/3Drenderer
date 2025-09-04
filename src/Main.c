@@ -13,12 +13,16 @@
 #include "light.h"
 #include "texture.h"
 #include "upng.h"
+#include "camera.h"
 
 bool is_running = false;
 bool paused = false;
+float delta_time = 0.0f;
 int previous_frame_time = 0;
+float fps = 0.0f;
 
-vec3_t camera_position = {0, 0, 0};
+mat4_t world_matrix;
+mat4_t view_matrix;
 mat4_t proj_matrix;
 
 //triangle_t *triangles_to_render = NULL;
@@ -52,18 +56,17 @@ void setup(void)
 	);
 
 	// Projection Matrix for Perspective Projeciton
-	float fov = M_PI / 3.0; // 60 degree fov
+	float fov = M_PI / 3.0f; // 60 degree fov
 	float aspect_ratio = (float)window_width / window_height;
-	float znear = 0.1;
-	float zfar = 100.0;
+	float znear = 0.1f;
+	float zfar = 100.0f;
 	proj_matrix = mat4_make_perspective(fov, aspect_ratio, znear, zfar);
 
 	// Load the mesh in mesh.h
 	//load_cube_mesh_data();
 	// Load an object via an obj file
-	load_obj_file_data("./assets/f117.obj", RED);
-
-	load_png_texture_data("./assets/f117.png");
+	load_obj_file_data("./assets/grass.obj", RED);
+	load_png_texture_data("./assets/grass.png");
 }
 
 void process_input(void)
@@ -138,35 +141,35 @@ void process_input(void)
 			{
 				case SDLK_RIGHT:
 					if (arrow_key_mode == 0)
-						mesh.translation.x += 0.03f;
+						mesh.translation.x += 0.3f * delta_time;
 					else
-						mesh.rotation.x += 0.05f;
+						mesh.rotation.x += 0.5f * delta_time;
 					break;
 				case SDLK_LEFT:
 					if (arrow_key_mode == 0)
-						mesh.translation.x -= 0.03f;
+						mesh.translation.x -= 0.3f * delta_time;
 					else
-						mesh.rotation.x -= 0.05f;
+						mesh.rotation.x -= 0.5f * delta_time;
 					break;
 				case SDLK_UP:
 					if (arrow_key_mode == 0)
-						mesh.translation.y += 0.03f;
+						mesh.translation.y += 0.3f * delta_time;
 					else
-						mesh.rotation.y += 0.05f;
+						mesh.rotation.y += 0.5f * delta_time;
 					break;
 				case SDLK_DOWN:
 					if (arrow_key_mode == 0)
-						mesh.translation.y -= 0.03f;
+						mesh.translation.y -= 0.3f * delta_time;
 					else
-						mesh.rotation.y -= 0.05f;
+						mesh.rotation.y -= 0.5f * delta_time;
 					break;
 			}
 
 			case SDLK_k:
-				mesh.rotation.z += 0.05f;
+				mesh.rotation.z += 0.5f * delta_time;
 				break;
 			case SDLK_j:
-				mesh.rotation.z -= 0.05f;
+				mesh.rotation.z -= 0.5f * delta_time;
 				break;
 
 			// Grow objects
@@ -174,22 +177,22 @@ void process_input(void)
 				const float MAX_SCALE = 2.0f;
 
 				if (mesh.scale.x < MAX_SCALE)
-					mesh.scale.x += 0.01f;
+					mesh.scale.x += 0.1f * delta_time;
 				if (mesh.scale.x < MAX_SCALE)
-					mesh.scale.y += 0.01f;
+					mesh.scale.y += 0.1f * delta_time;
 				if (mesh.scale.x < MAX_SCALE)
-					mesh.scale.z += 0.01f;
+					mesh.scale.z += 0.1f * delta_time;
 				break;
 			// Shrink objects
 			case SDLK_MINUS:
 				const float MIN_SCALE = 0.01f;
 
 				if (mesh.scale.x > MIN_SCALE)
-					mesh.scale.x -= 0.01f;
+					mesh.scale.x -= 0.5f * delta_time;
 				if (mesh.scale.y > MIN_SCALE)
-					mesh.scale.y -= 0.01f;
+					mesh.scale.y -= 0.5f * delta_time;
 				if (mesh.scale.z > MIN_SCALE)
-					mesh.scale.z -= 0.01f;
+					mesh.scale.z -= 0.5f * delta_time;
 				break;
 
 			// Cycle through different colors for an object
@@ -209,6 +212,18 @@ void process_input(void)
 			// Enable or disable lighting
 			case SDLK_l:
 				lighting = !lighting;
+				break;
+
+			case SDLK_x:
+				camera.position.x += 0.5f * delta_time;
+				break;
+
+			case SDLK_y:
+				camera.position.y += 0.5f * delta_time;
+				break;
+
+			case SDLK_z:
+				camera.position.z += 0.5f * delta_time;
 				break;
 			}
 		}
@@ -230,16 +245,48 @@ void update(void)
 	if (time_to_wait > 0 && time_to_wait < FRAME_TARGET_TIME)
 		SDL_Delay(time_to_wait);
 
+	// Delta time is the time since the previous frame, and it is used for consistent animations, regardless of FPS
+	delta_time = (SDL_GetTicks() - previous_frame_time) / 1000.0f;
+
 	previous_frame_time = SDL_GetTicks();
+
+	printf("delta_time = %.4f sec (%.2f ms)\n", delta_time, delta_time * 1000.0f);
+
+	// --- FPS counter ---
+	static float fps_timer = 0.0f;
+	static int fps_frames = 0;
+
+	fps_frames++;
+	fps_timer += delta_time;
+
+	if (fps_timer >= 1.0f) {
+		fps = fps_frames / fps_timer;  // average over ~1 sec
+		printf("FPS: %.2f\n", fps);
+		fps_frames = 0;
+		fps_timer = 0.0f;
+	}
 
 	num_triangles_to_render = 0;
 
-	// Change the mesh rotation/scale values per animation frame
-	// mesh.rotation.x += 0.005;
-	// mesh.rotation.y += 0.005;
-	// mesh.rotation.z += 0.005;
-	// Translate the vertex away from the camera
-	mesh.translation.z = 5.0;
+	// Apply transformations to the mesh every frame
+	// mesh.rotation.x += 0.5f * delta_time;
+	// mesh.rotation.y += 0.5f * delta_time;
+	// mesh.rotation.z += 0.5f * delta_time;
+
+	// Translate the mesh away from the camera
+	mesh.translation.z = 4.0f;
+
+	// Change the camera position every frame
+	// camera.position.x += 0.5f * delta_time;
+	// camera.position.y += 0.5f * delta_time;
+	// camera.position.z += 0.5f * delta_time;
+
+	// Create the View Matrix
+	// Set target.z to mesh_translation.z to look at the mesh
+	vec3_t target = {0.0f, 0.0f, 4.0f};
+	// Up is usually "y = 1" for the camera
+	vec3_t up_direction = {0.0f, 1.0f, 0.0f};
+	view_matrix = mat4_look_at(camera.position, target, up_direction);
 
 	// Create a scale, translation, and rotation matrix that will be used to transform our mesh vertices
 	mat4_t scale_matrix = mat4_make_scale(mesh.scale.x, mesh.scale.y, mesh.scale.z);
@@ -249,7 +296,7 @@ void update(void)
 	mat4_t translation_matrix = mat4_make_translation(mesh.translation.x, mesh.translation.y, mesh.translation.z);
 
 	// Create a World Matrix that combines our scale, rotation, and translation matrices
-	mat4_t world_matrix = mat4_identity();
+	world_matrix = mat4_identity();
 
 	// Order matters: First scale, then rotate, then translate (AxB != BxA)
 	world_matrix = mat4_mul_mat4(scale_matrix, world_matrix);
@@ -277,8 +324,12 @@ void update(void)
 		for (int j = 0; j < 3; j++)
 		{
 			vec4_t transformed_vertex = vec4_from_vec3(face_vertices[j]);
+
 			// Multiply the World Matrix by the original vector
 			transformed_vertex = mat4_mul_vec4(world_matrix, transformed_vertex);
+			// Multiply the View Matrix by the new World Space vector
+			transformed_vertex = mat4_mul_vec4(view_matrix, transformed_vertex);
+
 			transformed_vertices[j] = transformed_vertex;
 		}
 
@@ -298,14 +349,15 @@ void update(void)
 		vec3_normalize(&normal);
 
 		// Find the camera_ray from point A to the camera
-		vec3_t camera_ray = vec3_sub(camera_position, vec_a);
+		vec3_t origin = {0, 0, 0};
+		vec3_t camera_ray = vec3_sub(origin, vec_a);
 
 		// Calculate how alligned the camera ray is with the normal
 		float dot_product = vec3_dot(normal, camera_ray);
 
 		if (cull)
 		{
-			if (dot_product <= 0)
+			if (dot_product <= 0.0f)
 			{
 				continue;
 			}
@@ -375,7 +427,8 @@ void update(void)
 void render(void)
 {
 	// Background color
-	clear_color_buffer(BLACK);
+	clear_color_buffer(BLACK); 
+	// Set every pixels depth to 1.0
 	clear_z_buffer();
 
 	// draw_filled_circle(950, 1000, 200, ORANGE);
@@ -455,6 +508,9 @@ void free_resources(void)
 	array_free(mesh.faces);
 	array_free(mesh.vertices);
 	upng_free(png_texture);
+
+	// Used with the animate_rectangles function
+	// cleanup_rectangles();
 }
 
 int main(int argc, char **argv)
@@ -480,8 +536,6 @@ int main(int argc, char **argv)
 		render();
 	}
 
-	// Used with the animate_rectangles function
-	// cleanup_rectangles();
 	destroy_window();
 	free_resources();
 

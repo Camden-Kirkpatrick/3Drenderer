@@ -68,7 +68,7 @@ uint32_t generate_random_color(void);
 void animate_rectangles(int num_rects);
 void draw_checker_board(int cell_width, int cell_height, int rows, int cols, uint32_t cell_color_1, uint32_t cell_color_2, uint32_t border_color);
 void draw_line(int x0, int y0, int x1, int y1, uint32_t color);
-void draw_filled_circle(int cx, int cy, int r, uint32_t color);
+void draw_filled_circle(int cx, int cy, int rad, uint32_t color);
 void clear_color_buffer(uint32_t color);
 void clear_z_buffer(void);
 void cleanup_rectangles(void);
