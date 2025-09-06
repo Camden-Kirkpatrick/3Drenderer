@@ -16,6 +16,8 @@ void draw_triangle_pixel(
         vec4_t point_a, vec4_t point_b, vec4_t point_c
     )
 {
+    if (x < 0 || x >= window_width || y < 0 || y >= window_height) return;
+
     vec2_t p = {x, y};
     vec2_t a = vec2_from_vec4(point_a);
     vec2_t b = vec2_from_vec4(point_b);
@@ -173,6 +175,9 @@ void draw_texel(
         tex2_t a_uv, tex2_t b_uv, tex2_t c_uv
      )
 {
+
+    if (x < 0 || x >= window_width || y < 0 || y >= window_height) return;
+
     vec2_t p = {x, y};
     // We don't need to pass in z and w to caluclate the Barycentric coordinates
     vec2_t a = vec2_from_vec4(point_a);
@@ -225,7 +230,6 @@ void draw_texel(
     {
         // Draw the correct color from the texture
         draw_pixel(x, y, texture[(texture_width * tex_y) + tex_x]);
-
         // Update the z-buffer with the 1/w of the current pixel
         z_buffer[(window_width * y) + x] = interpolated_reciprocal_w;
     }

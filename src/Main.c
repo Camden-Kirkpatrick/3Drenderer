@@ -14,12 +14,12 @@
 #include "texture.h"
 #include "upng.h"
 #include "camera.h"
+#include "clipping.h"
 
 bool is_running = false;
 bool paused = false;
 float delta_time = 0.0f;
 int previous_frame_time = 0;
-float fps = 0.0f;
 
 mat4_t world_matrix;
 mat4_t view_matrix;
@@ -58,15 +58,18 @@ void setup(void)
 	// Projection Matrix for Perspective Projeciton
 	float fov = M_PI / 3.0f; // 60 degree fov
 	float aspect_ratio = (float)window_width / window_height;
-	float znear = 0.1f;
-	float zfar = 100.0f;
-	proj_matrix = mat4_make_perspective(fov, aspect_ratio, znear, zfar);
+	float z_near = 0.1f;
+	float z_far = 100.0f;
+	proj_matrix = mat4_make_perspective(fov, aspect_ratio, z_near, z_far);
+
+	// Initialize frustum planes with a point and a normal
+	init_frustum_planes(fov, z_near, z_far);
 
 	// Load the mesh in mesh.h
 	//load_cube_mesh_data();
 	// Load an object via an obj file
-	load_obj_file_data("./assets/grass.obj", RED);
-	load_png_texture_data("./assets/grass.png");
+	load_obj_file_data("./assets/f117.obj", RED);
+	load_png_texture_data("./assets/f117.png");
 }
 
 void process_input(void)
@@ -132,7 +135,7 @@ void process_input(void)
 				break;
 
 			// Toggle between modes for translating and rotating
-			case SDLK_a:
+			case SDLK_b:
 				arrow_key_mode = (arrow_key_mode == 0 ? 1 : 0);
 				break;
 				
@@ -214,16 +217,27 @@ void process_input(void)
 				lighting = !lighting;
 				break;
 
-			case SDLK_x:
-				camera.position.x += 0.5f * delta_time;
+			case SDLK_SPACE:
+				camera.position.y += 3.0f * delta_time;
+				break;
+			case SDLK_LSHIFT:
+				camera.position.y -= 3.0f * delta_time;
 				break;
 
-			case SDLK_y:
-				camera.position.y += 0.5f * delta_time;
+			case SDLK_a:
+				camera.yaw -= 1.0f * delta_time;
+				break;
+			case SDLK_d:
+				camera.yaw += 1.0f * delta_time;
 				break;
 
-			case SDLK_z:
-				camera.position.z += 0.5f * delta_time;
+			case SDLK_w:
+				camera.forward_velocity = vec3_mul(camera.direction, 5.0f * delta_time);
+				camera.position = vec3_add(camera.position, camera.forward_velocity);
+				break;
+			case SDLK_s:
+				camera.forward_velocity = vec3_mul(camera.direction, 5.0f * delta_time);
+				camera.position = vec3_sub(camera.position, camera.forward_velocity);
 				break;
 			}
 		}
@@ -250,22 +264,6 @@ void update(void)
 
 	previous_frame_time = SDL_GetTicks();
 
-	printf("delta_time = %.4f sec (%.2f ms)\n", delta_time, delta_time * 1000.0f);
-
-	// --- FPS counter ---
-	static float fps_timer = 0.0f;
-	static int fps_frames = 0;
-
-	fps_frames++;
-	fps_timer += delta_time;
-
-	if (fps_timer >= 1.0f) {
-		fps = fps_frames / fps_timer;  // average over ~1 sec
-		printf("FPS: %.2f\n", fps);
-		fps_frames = 0;
-		fps_timer = 0.0f;
-	}
-
 	num_triangles_to_render = 0;
 
 	// Apply transformations to the mesh every frame
@@ -274,19 +272,39 @@ void update(void)
 	// mesh.rotation.z += 0.5f * delta_time;
 
 	// Translate the mesh away from the camera
-	mesh.translation.z = 4.0f;
+	mesh.translation.z = 5.0f;
 
-	// Change the camera position every frame
+	// Apply transformations to the camera every frame
 	// camera.position.x += 0.5f * delta_time;
 	// camera.position.y += 0.5f * delta_time;
 	// camera.position.z += 0.5f * delta_time;
 
 	// Create the View Matrix
-	// Set target.z to mesh_translation.z to look at the mesh
-	vec3_t target = {0.0f, 0.0f, 4.0f};
-	// Up is usually "y = 1" for the camera
+
+	// This code forces our camera to look at a single point
+	// The target is the point that our camera is looking at
+	// The taget.z is set to the mesh.translation.z so that we look at the mesh
+	// vec3_t look_at = {0.0f, 0.0f, 5.0f};
+	// // Up is usually "y = 1" for the camera
+	// vec3_t up_direction = {0.0f, 1.0f, 0.0f};
+	// view_matrix = mat4_look_at(camera.position, look_at, up_direction);
+
+
+	// This code implements a basic FPS camera movement
+	// Start with a "default forward" vector (the nose of the camera when yaw=0).
+	vec3_t forward = {0.0f, 0.0f, 1.0f};
 	vec3_t up_direction = {0.0f, 1.0f, 0.0f};
-	view_matrix = mat4_look_at(camera.position, target, up_direction);
+
+	// Rotate that forward vector around the Y axis by the camera's yaw angle.
+	// This gives us the actual direction the camera is currently facing.
+	mat4_t camera_yaw_rotation = mat4_make_rotation_y(camera.yaw);
+	camera.direction = vec3_from_vec4(mat4_mul_vec4(camera_yaw_rotation, vec4_from_vec3(forward)));
+
+	// 3. Figure out a "look at" point: the camera's position plus one step forward
+	// in its facing direction.
+	vec3_t look_at = vec3_add(camera.position, camera.direction);
+
+	view_matrix = mat4_look_at(camera.position, look_at, up_direction);
 
 	// Create a scale, translation, and rotation matrix that will be used to transform our mesh vertices
 	mat4_t scale_matrix = mat4_make_scale(mesh.scale.x, mesh.scale.y, mesh.scale.z);
