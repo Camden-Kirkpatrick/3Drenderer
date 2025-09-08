@@ -3,15 +3,6 @@
 #include <math.h>
 #include <stdio.h>
 
-int window_width = 2000;
-int window_height = 1600;
-SDL_Window *window = NULL;
-SDL_Renderer *renderer = NULL;
-SDL_Texture *color_buffer_texture = NULL;
-
-uint32_t *color_buffer = NULL;
-float *z_buffer = NULL;
-
 uint32_t colors[NUM_COLORS] = {
 	RED,
 	GREEN,
@@ -35,96 +26,85 @@ uint32_t colors[NUM_COLORS] = {
 uint32_t current_color;
 size_t color_index = 0;
 
-bool cull = true;
-enum Render_Method render_method;
-
 // Used with the animate_rectangles function
-bool *inited = NULL;
-int *size = NULL;
-int *rx = NULL;
-int *ry = NULL;
-int *rvx = NULL;
-int *rvy = NULL;
-uint32_t *rcolor = NULL;
-int allocated = 0;
+static bool *inited = NULL;
+static int *size = NULL;
+static int *rx = NULL;
+static int *ry = NULL;
+static int *rvx = NULL;
+static int *rvy = NULL;
+static uint32_t *rcolor = NULL;
+static int allocated = 0;
 
-bool initialize_window(void)
+static float *ax = NULL;  // subpixel accumulator X
+static float *ay = NULL;  // subpixel accumulator Y
+
+bool window_init(Window* w, int req_w, int req_h)
 {
-	// Intialize SDL
-	if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
+    SDL_Init(SDL_INIT_EVERYTHING);
+
+    if (req_w > 0 && req_h > 0)
 	{
-		fprintf(stderr, "Error initializing SDL!\n");
-		return false;
-	}
-
-	// Use SDL to query what the max width and height of our screen is
-	SDL_DisplayMode display_mode;
-	SDL_GetCurrentDisplayMode(0, &display_mode);
-
-	// // Set the window's width and height to the monitor's width and height
-	window_width = display_mode.w;
-	window_height = display_mode.h;
-
-	// Create SDL window
-	window = SDL_CreateWindow(
-		NULL,
-		SDL_WINDOWPOS_CENTERED,
-		SDL_WINDOWPOS_CENTERED,
-		window_width,
-		window_height,
-		SDL_WINDOW_BORDERLESS);
-	if (!window)
+        w->width  = req_w;
+        w->height = req_h;
+    }
+	else
 	{
-		fprintf(stderr, "Error creating SDL window!\n");
-		return false;
-	}
+        SDL_DisplayMode dm;
+        SDL_GetCurrentDisplayMode(0, &dm);
+        w->width  = dm.w;
+        w->height = dm.h;
+    }
 
-	// Create an SDL renderer
-	renderer = SDL_CreateRenderer(window, -1, 0);
-	if (!renderer)
-	{
-		fprintf(stderr, "Error creating SDL renderer!\n");
-		return false;
-	}
+    // 1) Create the window first, with known nonzero size
+    w->sdl_window = SDL_CreateWindow(NULL, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                     w->width, w->height, SDL_WINDOW_BORDERLESS);
+    if (!w->sdl_window) return false;
 
-	// This changes the video mode to fullscreen
-	SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
-
-	return true;
+    w->renderer = SDL_CreateRenderer(w->sdl_window, -1, 0);
+    w->color_buffer = malloc(sizeof(uint32_t) * w->width * w->height);
+    w->z_buffer     = malloc(sizeof(float)     * w->width * w->height);
+    w->color_buffer_texture = SDL_CreateTexture(
+        w->renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING,
+        w->width, w->height
+    );
+    return w->renderer && w->color_buffer && w->z_buffer && w->color_buffer_texture;
 }
 
-void render_color_buffer(void)
+
+
+void render_color_buffer(Window *w)
 {
 	// Copy pixel data from the CPU buffer into the SDL texture
 	SDL_UpdateTexture(
-		color_buffer_texture,
+		w->color_buffer_texture,
 		NULL,
-		color_buffer,
-		(int)(window_width * sizeof(uint32_t)));
+		w->color_buffer,
+		(int)(w->width * sizeof(uint32_t)));
 	// Queue the texture to be drawn on the screen (but not shown yet)
-	SDL_RenderCopy(renderer, color_buffer_texture, NULL, NULL);
+	SDL_RenderCopy(w->renderer, w->color_buffer_texture, NULL, NULL);
 }
 
-void draw_pixel(int x, int y, uint32_t color)
+void draw_pixel(Window *w, int x, int y, uint32_t color)
 {
 	// Make sure the pixel is in bounds of the window
-	if (x < window_width && x >= 0 && y < window_height && y >= 0)
-		color_buffer[(window_width * y) + x] = color;
+	if (x < w->width && x >= 0 && y < w->height && y >= 0)
+		w->color_buffer[(w->width * y) + x] = color;
 }
 
-void draw_rectangle(int x, int y, int width, int height, uint32_t color)
+void draw_rectangle(Window *w, int x, int y, int width, int height, uint32_t color)
 {
 	for (int i = 0; i < height; i++)
 	{
 		for (int j = 0; j < width; j++)
 		{
 			// We always add x/y, since that is the starting horizontal/vertical position of the rectangle
-			draw_pixel(x + j, y + i, color);
+			draw_pixel(w, x + j, y + i, color);
 		}
 	}
 }
 
-void draw_grid(int x, int y, int width, int height, int line_spacing, uint32_t color)
+void draw_grid(Window *w, int x, int y, int width, int height, int line_spacing, uint32_t color)
 {
 	for (int i = 0; i < height; i++)
 	{
@@ -136,13 +116,13 @@ void draw_grid(int x, int y, int width, int height, int line_spacing, uint32_t c
 
 			if ((current_y % line_spacing == 0) || (current_x % line_spacing == 0))
 			{
-				draw_pixel(current_x, current_y, color);
+				draw_pixel(w, current_x, current_y, color);
 			}
 		}
 	}
 }
 
-void draw_dotted_grid(int x, int y, int width, int height, int dot_spacing, uint32_t color)
+void draw_dotted_grid(Window *w, int x, int y, int width, int height, int dot_spacing, uint32_t color)
 {
 	for (int i = 0; i < height; i++)
 	{
@@ -154,13 +134,13 @@ void draw_dotted_grid(int x, int y, int width, int height, int dot_spacing, uint
 
 			if ((current_y % dot_spacing == 0) && (current_x % dot_spacing == 0))
 			{
-				draw_pixel(current_x, current_y, color);
+				draw_pixel(w, current_x, current_y, color);
 			}
 		}
 	}
 }
 
-uint32_t generate_random_color(void)
+uint32_t generate_random_color(Window *w)
 {
 	uint32_t color;
 
@@ -177,7 +157,7 @@ uint32_t generate_random_color(void)
 }
 
 // Create a bunch of random rectangles that bounce around the window
-void animate_rectangles(int num_rects)
+void animate_rectangles(Window *w, int num_rects, float dt)
 {
 	if (num_rects <= 0)
 		return;
@@ -192,6 +172,8 @@ void animate_rectangles(int num_rects)
 		free(rvy);
 		free(rcolor);
 		free(size);
+		free(ax);
+		free(ay);
 
 		inited = calloc(num_rects, sizeof(bool));
 		size = malloc(num_rects * sizeof(int));
@@ -200,6 +182,8 @@ void animate_rectangles(int num_rects)
 		rvx = malloc(num_rects * sizeof(int));
 		rvy = malloc(num_rects * sizeof(int));
 		rcolor = malloc(num_rects * sizeof(uint32_t));
+		ax = calloc(num_rects, sizeof(float));
+		ay = calloc(num_rects, sizeof(float));
 
 		allocated = num_rects;
 	}
@@ -212,8 +196,8 @@ void animate_rectangles(int num_rects)
 			// Randomize size
 			size[i] = (rand() % 100) + 1;
 			// Random starting position, ensuring it fits in the window
-			rx[i] = rand() % (window_width - size[i] + 1);
-			ry[i] = rand() % (window_height - size[i] + 1);
+			rx[i] = rand() % (w->width - size[i] + 1);
+			ry[i] = rand() % (w->height - size[i] + 1);
 			do
 			{
 				// Randomize velocity, ensuring it is not zero
@@ -240,9 +224,19 @@ void animate_rectangles(int num_rects)
 			inited[i] = true;
 		}
 
-		// move
-		rx[i] += rvx[i];
-		ry[i] += rvy[i];
+
+		// new (keep rvx/rvy as your int “pixels/sec”):
+		ax[i] += 50 * rvx[i] * dt;
+		ay[i] += 50 * rvy[i] * dt;
+
+		int dx = (int)ax[i];
+		int dy = (int)ay[i];
+
+		ax[i] -= dx;   // keep the fractional remainder
+		ay[i] -= dy;
+
+		rx[i] += dx;
+		ry[i] += dy;
 
 		// bounce off left/right
 		if (rx[i] <= 0)
@@ -250,9 +244,9 @@ void animate_rectangles(int num_rects)
 			rx[i] = 0;
 			rvx[i] = -rvx[i];
 		}
-		else if (rx[i] + size[i] >= window_width)
+		else if (rx[i] + size[i] >= w->width)
 		{
-			rx[i] = window_width - size[i];
+			rx[i] = w->width - size[i];
 			rvx[i] = -rvx[i];
 		}
 
@@ -262,17 +256,17 @@ void animate_rectangles(int num_rects)
 			ry[i] = 0;
 			rvy[i] = -rvy[i];
 		}
-		else if (ry[i] + size[i] >= window_height)
+		else if (ry[i] + size[i] >= w->height)
 		{
-			ry[i] = window_height - size[i];
+			ry[i] = w->height - size[i];
 			rvy[i] = -rvy[i];
 		}
 
-		draw_rectangle(rx[i], ry[i], size[i], size[i], rcolor[i]);
+		draw_rectangle(w, rx[i], ry[i], size[i], size[i], rcolor[i]);
 	}
 }
 
-void draw_checker_board(int cell_width, int cell_height, int rows, int cols, uint32_t cell_color_1, uint32_t cell_color_2, uint32_t border_color)
+void draw_checker_board(Window *w, int cell_width, int cell_height, int rows, int cols, uint32_t cell_color_1, uint32_t cell_color_2, uint32_t border_color)
 {
 	for (int y = 0; y < rows; y++)
 	{
@@ -287,15 +281,15 @@ void draw_checker_board(int cell_width, int cell_height, int rows, int cols, uin
 
 			// Draw the border of the checkerboard
 			if (x == 0 || y == 0 || x == cols - 1 || y == rows - 1)
-				draw_rectangle(top_left_x, top_left_y, cell_width, cell_height, border_color);
+				draw_rectangle(w, top_left_x, top_left_y, cell_width, cell_height, border_color);
 			// Draw the checkerboard
 			else
-				draw_rectangle(top_left_x, top_left_y, cell_width, cell_height, color);
+				draw_rectangle(w, top_left_x, top_left_y, cell_width, cell_height, color);
 		}
 	}
 }
 
-void draw_line(int x0, int y0, int x1, int y1, uint32_t color)
+void draw_line(Window *w, int x0, int y0, int x1, int y1, uint32_t color)
 {
 	int delta_x = x1 - x0;
 	int delta_y = y1 - y0;
@@ -310,13 +304,13 @@ void draw_line(int x0, int y0, int x1, int y1, uint32_t color)
 
 	for (int i = 0; i <= longest_side_length; i++)
 	{
-		draw_pixel(round(current_x), round(current_y), color);
+		draw_pixel(w, round(current_x), round(current_y), color);
 		current_x += x_inc;
 		current_y += y_inc;
 	}
 }
 
-void draw_filled_circle(int cx, int cy, int rad, uint32_t color)
+void draw_filled_circle(Window *w, int cx, int cy, int rad, uint32_t color)
 {
 	int r2 = rad * rad;
 	for (int y = -rad; y <= rad; y++)
@@ -325,27 +319,27 @@ void draw_filled_circle(int cx, int cy, int rad, uint32_t color)
 		{
 			if (x * x + y * y <= r2)
 			{
-				draw_pixel(cx + x, cy + y, color);
+				draw_pixel(w, cx + x, cy + y, color);
 			}
 		}
 	}
 }
 
-void clear_color_buffer(uint32_t color)
+void clear_color_buffer(Window *w, uint32_t color)
 {
-	int num_pixels = window_width * window_height;
+	int num_pixels = w->width * w->height;
 	for (int i = 0; i < num_pixels; i++)
 	{
-		color_buffer[i] = color;
+		w->color_buffer[i] = color;
 	}
 }
 
-void clear_z_buffer(void)
+void clear_z_buffer(Window *w)
 {
-	int num_pixels = window_width * window_height;
+	int num_pixels = w->width * w->height;
 	for (int i = 0; i < num_pixels; i++)
 	{
-		z_buffer[i] = 1.0f;
+		w->z_buffer[i] = 1.0f;
 	}
 }
 
@@ -358,6 +352,8 @@ void cleanup_rectangles(void)
 	free(rvx);
 	free(rvy);
 	free(rcolor);
+	free(ax); 
+	free(ay); 
 	inited = NULL;
 	size = NULL;
 	rx = NULL;
@@ -365,12 +361,19 @@ void cleanup_rectangles(void)
 	rvx = NULL;
 	rvy = NULL;
 	rcolor = NULL;
+	ax = NULL;
+	ay = NULL;
 	allocated = 0;
 }
 
-void destroy_window(void)
-{
-	SDL_DestroyRenderer(renderer);
-	SDL_DestroyWindow(window);
-	SDL_Quit();
+
+void window_destroy(Window* w) {
+    if (!w) return;
+    cleanup_rectangles(); // keep your rectangles cleanup
+    if (w->color_buffer_texture) { SDL_DestroyTexture(w->color_buffer_texture); w->color_buffer_texture = NULL; }
+    free(w->color_buffer); w->color_buffer = NULL;
+    free(w->z_buffer);     w->z_buffer     = NULL;
+    if (w->renderer)   { SDL_DestroyRenderer(w->renderer);   w->renderer   = NULL; }
+    if (w->sdl_window) { SDL_DestroyWindow(w->sdl_window);   w->sdl_window = NULL; }
+    SDL_Quit();
 }

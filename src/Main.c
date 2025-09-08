@@ -7,7 +7,6 @@
 #include "display.h"
 #include "vector.h"
 #include "triangle.h"
-#include "mesh.h"
 #include "array.h"
 #include "matrix.h"
 #include "light.h"
@@ -15,11 +14,12 @@
 #include "upng.h"
 #include "camera.h"
 #include "clipping.h"
+#include "keyboard.h"
+#include "mesh.h"
+#include "app.h"
 
-bool is_running = false;
-bool paused = false;
-float delta_time = 0.0f;
 int previous_frame_time = 0;
+int was_paused = 0;
 
 mat4_t world_matrix;
 mat4_t view_matrix;
@@ -32,32 +32,23 @@ triangle_t triangles_to_render[MAX_TRIANGLES];
 int num_triangles_to_render = 0;
 
 // Used with the animate_rectangles function
-int rect_count = 1;
+int rect_count = 20;
 
-int arrow_key_mode = 0;
-
-void setup(void)
+void setup(AppState *app)
 {
+	app->paused = false,
+	app->fps = 60;
+	app->frame_target_time = 1000 / app->fps; // time between each frame
+	app->delta_time = 0.0f;
+    app->arrow_key_mode = 0; // toggle between translating and rotating the mesh
+	app->render_method = RENDER_WIRE;
+	app->cull = true;
+
 	current_color = colors[color_index];
-
-	// Allocate the required memory in bytes to hold the color buffer and z-buffer
-	color_buffer = (uint32_t*)malloc(sizeof(uint32_t) * window_width * window_height);
-	z_buffer = (float*)malloc(sizeof(float) * window_width * window_height);
-
-	// Creating an SDL texture that is used to display the color buffer
-	color_buffer_texture = 
-	SDL_CreateTexture
-	(
-		renderer,
-		SDL_PIXELFORMAT_RGBA32,
-		SDL_TEXTUREACCESS_STREAMING,
-		window_width,
-		window_height
-	);
 
 	// Projection Matrix for Perspective Projeciton
 	float fov = M_PI / 3.0f; // 60 degree fov
-	float aspect_ratio = (float)window_width / window_height;
+	float aspect_ratio = (float)app->win.width / app->win.height;
 	float z_near = 0.1f;
 	float z_far = 100.0f;
 	proj_matrix = mat4_make_perspective(fov, aspect_ratio, z_near, z_far);
@@ -72,179 +63,7 @@ void setup(void)
 	load_png_texture_data("./assets/f117.png");
 }
 
-void process_input(void)
-{
-	SDL_Event event;
-	while (SDL_PollEvent(&event))
-	{ // always drain the queue
-		if (event.type == SDL_QUIT)
-		{
-			is_running = false;
-			break;
-		}
-		if (event.type == SDL_KEYDOWN)
-		{
-			SDL_Keycode k = event.key.keysym.sym;
-
-			if (k == SDLK_ESCAPE)
-			{
-				is_running = false;
-				continue;
-			}
-			if (k == SDLK_p)
-			{
-				paused = !paused;
-				continue;
-			}
-
-			// ignore movement / mode changes while paused
-			if (paused)
-				continue;
-
-			switch (k)
-			{
-			// Select a rendering method
-			case SDLK_1:
-				render_method = RENDER_WIRE;
-				break;
-			case SDLK_2:
-				render_method = RENDER_WIRE_VERTEX;
-				break;
-			case SDLK_3:
-				render_method = RENDER_FILL_TRIANGLE;
-				break;
-			case SDLK_4:
-				render_method = RENDER_FILL_TRIANGLE_WIRE;
-				break;
-			case SDLK_5:
-				render_method = RENDER_FILL_TRIANGLE_WIRE_VERTEX;
-				break;
-			case SDLK_6:
-				render_method = RENDER_TEXTURED;
-				break;
-			case SDLK_7:
-				render_method = RENDER_TEXTURED_WIRE;
-				break;
-			case SDLK_8:
-				render_method = RENDER_TEXTURED_WIRE_VERTEX;
-				break;
-
-			// Enable or disable Back-face Culling
-			case SDLK_c:
-				cull = !cull;
-				break;
-
-			// Toggle between modes for translating and rotating
-			case SDLK_b:
-				arrow_key_mode = (arrow_key_mode == 0 ? 1 : 0);
-				break;
-				
-			// Translate or Rotate the object depending on the current mode
-			if (arrow_key_mode == 0)
-			{
-				case SDLK_RIGHT:
-					if (arrow_key_mode == 0)
-						mesh.translation.x += 0.3f * delta_time;
-					else
-						mesh.rotation.x += 0.5f * delta_time;
-					break;
-				case SDLK_LEFT:
-					if (arrow_key_mode == 0)
-						mesh.translation.x -= 0.3f * delta_time;
-					else
-						mesh.rotation.x -= 0.5f * delta_time;
-					break;
-				case SDLK_UP:
-					if (arrow_key_mode == 0)
-						mesh.translation.y += 0.3f * delta_time;
-					else
-						mesh.rotation.y += 0.5f * delta_time;
-					break;
-				case SDLK_DOWN:
-					if (arrow_key_mode == 0)
-						mesh.translation.y -= 0.3f * delta_time;
-					else
-						mesh.rotation.y -= 0.5f * delta_time;
-					break;
-			}
-
-			case SDLK_k:
-				mesh.rotation.z += 0.5f * delta_time;
-				break;
-			case SDLK_j:
-				mesh.rotation.z -= 0.5f * delta_time;
-				break;
-
-			// Grow objects
-			case SDLK_EQUALS:
-				const float MAX_SCALE = 2.0f;
-
-				if (mesh.scale.x < MAX_SCALE)
-					mesh.scale.x += 0.1f * delta_time;
-				if (mesh.scale.x < MAX_SCALE)
-					mesh.scale.y += 0.1f * delta_time;
-				if (mesh.scale.x < MAX_SCALE)
-					mesh.scale.z += 0.1f * delta_time;
-				break;
-			// Shrink objects
-			case SDLK_MINUS:
-				const float MIN_SCALE = 0.01f;
-
-				if (mesh.scale.x > MIN_SCALE)
-					mesh.scale.x -= 0.5f * delta_time;
-				if (mesh.scale.y > MIN_SCALE)
-					mesh.scale.y -= 0.5f * delta_time;
-				if (mesh.scale.z > MIN_SCALE)
-					mesh.scale.z -= 0.5f * delta_time;
-				break;
-
-			// Cycle through different colors for an object
-			case SDLK_m:
-				color_index = (color_index + 1) % NUM_COLORS;
-				current_color = colors[color_index];
-				break;
-			case SDLK_n:
-				color_index = (color_index - 1) % NUM_COLORS;
-				current_color = colors[color_index];
-				break;
-			// Generate a random color for an object
-			case SDLK_r:
-				current_color = generate_random_color();
-				break;
-
-			// Enable or disable lighting
-			case SDLK_l:
-				lighting = !lighting;
-				break;
-
-			case SDLK_SPACE:
-				camera.position.y += 3.0f * delta_time;
-				break;
-			case SDLK_LSHIFT:
-				camera.position.y -= 3.0f * delta_time;
-				break;
-
-			case SDLK_a:
-				camera.yaw -= 1.0f * delta_time;
-				break;
-			case SDLK_d:
-				camera.yaw += 1.0f * delta_time;
-				break;
-
-			case SDLK_w:
-				camera.forward_velocity = vec3_mul(camera.direction, 5.0f * delta_time);
-				camera.position = vec3_add(camera.position, camera.forward_velocity);
-				break;
-			case SDLK_s:
-				camera.forward_velocity = vec3_mul(camera.direction, 5.0f * delta_time);
-				camera.position = vec3_sub(camera.position, camera.forward_velocity);
-				break;
-			}
-		}
-	}
-}
-
-void update(void)
+void update(AppState *app)
 {
 	// We have to find the new triangles to render each frame, so we want to start with an empty array
 	// if (triangles_to_render)
@@ -254,30 +73,30 @@ void update(void)
 	// }
 
 	// Make sure the desired FPS is reached
-	int time_to_wait = FRAME_TARGET_TIME - (SDL_GetTicks() - previous_frame_time);
+	int time_to_wait = app->frame_target_time - (SDL_GetTicks() - previous_frame_time);
 
-	if (time_to_wait > 0 && time_to_wait < FRAME_TARGET_TIME)
+	if (time_to_wait > 0 && time_to_wait < app->frame_target_time)
 		SDL_Delay(time_to_wait);
 
 	// Delta time is the time since the previous frame, and it is used for consistent animations, regardless of FPS
-	delta_time = (SDL_GetTicks() - previous_frame_time) / 1000.0f;
+	app->delta_time = (SDL_GetTicks() - previous_frame_time) / 1000.0f;
 
 	previous_frame_time = SDL_GetTicks();
 
 	num_triangles_to_render = 0;
 
 	// Apply transformations to the mesh every frame
-	// mesh.rotation.x += 0.5f * delta_time;
-	// mesh.rotation.y += 0.5f * delta_time;
-	// mesh.rotation.z += 0.5f * delta_time;
+	mesh.rotation.x += 0.5f * app->delta_time;
+	mesh.rotation.y += 0.5f * app->delta_time;
+	mesh.rotation.z += 0.5f * app->delta_time;
 
 	// Translate the mesh away from the camera
 	mesh.translation.z = 5.0f;
 
 	// Apply transformations to the camera every frame
-	// camera.position.x += 0.5f * delta_time;
-	// camera.position.y += 0.5f * delta_time;
-	// camera.position.z += 0.5f * delta_time;
+	// camera.position.x += 0.5f * app->delta_time;
+	// camera.position.y += 0.5f * app->delta_time;
+	// camera.position.z += 0.5f * app->delta_time;
 
 	// Create the View Matrix
 
@@ -373,7 +192,7 @@ void update(void)
 		// Calculate how alligned the camera ray is with the normal
 		float dot_product = vec3_dot(normal, camera_ray);
 
-		if (cull)
+		if (app->cull)
 		{
 			if (dot_product <= 0.0f)
 			{
@@ -392,12 +211,12 @@ void update(void)
 			projected_points[j].y *= -1;
 
 			// Scale each vertex, which will end up scaling the object
-			projected_points[j].x *= (window_width / 2.0);
-			projected_points[j].y *= (window_height / 2.0);
+			projected_points[j].x *= (app->win.width / 2.0f);
+			projected_points[j].y *= (app->win.height / 2.0f);
 
 			// Translate each vertex so that they are inside our window
-			projected_points[j].x += (window_width / 2.0);
-			projected_points[j].y += (window_height / 2.0);
+			projected_points[j].x += (app->win.width / 2.0f);
+			projected_points[j].y += (app->win.height / 2.0f);
 		}
 
 		uint32_t triangle_color;
@@ -442,12 +261,12 @@ void update(void)
 	}
 }
 
-void render(void)
+void render(AppState *app)
 {
 	// Background color
-	clear_color_buffer(BLACK); 
+	clear_color_buffer(&app->win, BLACK); 
 	// Set every pixels depth to 1.0
-	clear_z_buffer();
+	clear_z_buffer(&app->win);
 
 	// draw_filled_circle(950, 1000, 200, ORANGE);
 	// draw_filled_circle(2900, 1000, 200, CYAN);
@@ -461,10 +280,11 @@ void render(void)
 		triangle_t triangle = triangles_to_render[i];
 
 		// Draw a filled triangle
-		if (render_method == RENDER_FILL_TRIANGLE || render_method == RENDER_FILL_TRIANGLE_WIRE || render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX)
+		if (app->render_method == RENDER_FILL_TRIANGLE || app->render_method == RENDER_FILL_TRIANGLE_WIRE || app->render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX)
 		{
 			draw_filled_triangle
 			(
+				&app->win,
 				triangle.points[0].x, triangle.points[0].y, triangle.points[0].z, triangle.points[0].w,
 				triangle.points[1].x, triangle.points[1].y, triangle.points[1].z, triangle.points[1].w,
 				triangle.points[2].x, triangle.points[2].y, triangle.points[2].z, triangle.points[2].w,
@@ -472,11 +292,12 @@ void render(void)
 			);
 		}
 
-		if (render_method == RENDER_TEXTURED || render_method == RENDER_TEXTURED_WIRE || render_method == RENDER_TEXTURED_WIRE_VERTEX)
+		if (app->render_method == RENDER_TEXTURED || app->render_method == RENDER_TEXTURED_WIRE || app->render_method == RENDER_TEXTURED_WIRE_VERTEX)
 		{
 			// We need to pass in the z and w components too, so we can have a perspective correct texture
 			draw_textured_triangle
 			(
+				&app->win,
 				mesh_texture,
 				triangle.points[0].x, triangle.points[0].y, triangle.points[0].z, triangle.points[0].w, triangle.texcoords[0].u, triangle.texcoords[0].v,
 				triangle.points[1].x, triangle.points[1].y, triangle.points[1].z, triangle.points[1].w, triangle.texcoords[1].u, triangle.texcoords[1].v,
@@ -485,10 +306,11 @@ void render(void)
 		}
 
 		// Draw an unfilled triangle (wireframe)
-		if (render_method == RENDER_WIRE || render_method == RENDER_WIRE_VERTEX || render_method == RENDER_FILL_TRIANGLE_WIRE || render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX || render_method == RENDER_TEXTURED_WIRE || render_method == RENDER_TEXTURED_WIRE_VERTEX)
+		if (app->render_method == RENDER_WIRE || app->render_method == RENDER_WIRE_VERTEX || app->render_method == RENDER_FILL_TRIANGLE_WIRE || app->render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX || app->render_method == RENDER_TEXTURED_WIRE || app->render_method == RENDER_TEXTURED_WIRE_VERTEX)
 		{
 			draw_triangle
 			(
+				&app->win,
 				triangle.points[0].x, triangle.points[0].y,
 				triangle.points[1].x, triangle.points[1].y,
 				triangle.points[2].x, triangle.points[2].y,
@@ -497,64 +319,72 @@ void render(void)
 		}
 
 		// Draw the triangle vertices
-		if (render_method == RENDER_WIRE_VERTEX || render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX || render_method == RENDER_TEXTURED_WIRE_VERTEX)
+		if (app->render_method == RENDER_WIRE_VERTEX || app->render_method == RENDER_FILL_TRIANGLE_WIRE_VERTEX || app->render_method == RENDER_TEXTURED_WIRE_VERTEX)
 		{
-			draw_rectangle(triangle.points[0].x - 1, triangle.points[0].y - 1, 3, 3, GREEN);
-			draw_rectangle(triangle.points[1].x - 1, triangle.points[1].y - 1, 3, 3, GREEN);
-			draw_rectangle(triangle.points[2].x - 1, triangle.points[2].y - 1, 3, 3, GREEN);
+			draw_rectangle(&app->win, triangle.points[0].x - 1, triangle.points[0].y - 1, 3, 3, GREEN);
+			draw_rectangle(&app->win, triangle.points[1].x - 1, triangle.points[1].y - 1, 3, 3, GREEN);
+			draw_rectangle(&app->win, triangle.points[2].x - 1, triangle.points[2].y - 1, 3, 3, GREEN);
 		}
 	}
 
-	// draw_dotted_grid(0, 0, window_width - 1, window_height - 1, 42, RED);
+	//animate_rectangles(&app->win, rect_count, app->paused ? 0.0f : app->delta_time);
 
-	// draw_filled_circle(1925, 200, 200, GREEN);
-	// draw_filled_circle(1925, 1900, 200, YELLOW);
+	// draw_dotted_grid(&app->win, 0, 0, app->win.width - 1, app->win.height - 1, 42, RED);
 
-	// animate_rectangles(rect_count);
+	// draw_filled_circle(&app->win, 1925, 200, 200, GREEN);
+	// draw_filled_circle(&app->win, 1925, 1900, 200, YELLOW);
+
+	// draw_checker_board(&app->win, 40, 40, app->win.height/40, app->win.width/40, LIGHT_GRAY, DARK_GRAY, WHITE);
 
 	// Copy the pixel data over to the SDL texture
-	render_color_buffer();
+	render_color_buffer(&app->win);
 
 	// Draw the new frame
-	SDL_RenderPresent(renderer);
+	SDL_RenderPresent(app->win.renderer);
 }
 
 void free_resources(void)
 {
-	free(color_buffer);
-	free(z_buffer);
 	array_free(mesh.faces);
 	array_free(mesh.vertices);
-	upng_free(png_texture);
-
-	// Used with the animate_rectangles function
-	// cleanup_rectangles();
+	if (png_texture)
+	{
+        upng_free(png_texture);
+        png_texture = NULL;
+    }
 }
 
 int main(int argc, char **argv)
 {
-	is_running = initialize_window();
+	AppState app;
 
-	// Used with the animate_rectangles function
-	// rect_count = atoi(argv[1]);
-	// if (rect_count < 1)
-	// 	rect_count = 1;
+	app.is_running = 
+	(argc > 2) ? window_init(&app.win, atoi(argv[1]), atoi(argv[2]))
+                                : window_init(&app.win, 0, 0);
 
 	srand((unsigned)time(NULL));
 
-	setup();
+	setup(&app);
 
-	while (is_running)
+	while (app.is_running)
 	{
-		process_input();
-		if (!paused)
+		process_input(&app);
+
+		// This prevents the next delta_time calculation from including the whole
+		// pause duration (which would otherwise make dt huge on the first update).
+		if (was_paused && !app.paused)
+			previous_frame_time = SDL_GetTicks();
+
+    	was_paused = app.paused;
+
+		if (!(app.paused))
 		{
-			update();
+			update(&app);
 		}
-		render();
+		render(&app);
 	}
 
-	destroy_window();
+	window_destroy(&app.win);
 	free_resources();
 
 	return 0;

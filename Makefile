@@ -1,6 +1,6 @@
 .PHONY: all build run clean
 
-all: build
+all: build run
 
 build:
 	gcc -pipe -Wall -std=c99 src/*.c \
