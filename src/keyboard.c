@@ -1,5 +1,4 @@
 #include <SDL2/SDL.h>
-
 #include <stdbool.h>
 #include "keyboard.h"
 #include "mesh.h"
@@ -13,7 +12,6 @@ void process_input(AppState *app)
 	SDL_Event event;
 	while (SDL_PollEvent(&event))
 	{ 
-        // always drain the queue
 		if (event.type == SDL_QUIT)
 		{
 			app->is_running = false;
@@ -85,35 +83,8 @@ void process_input(AppState *app)
 				app->cull = !(app->cull);
 				break;
 
-			// Toggle between modes for translating and rotating
 			case SDLK_b:
 				app->arrow_key_mode = (app->arrow_key_mode == 0 ? 1 : 0);
-				break;
-				
-			// Translate or Rotate the object depending on the current mode
-			case SDLK_RIGHT:
-				if (app->arrow_key_mode == 0)
-					mesh.translation.x += 1.0f * app->delta_time;
-				else
-					mesh.rotation.x += 0.5f * app->delta_time;
-				break;
-			case SDLK_LEFT:
-				if (app->arrow_key_mode == 0)
-					mesh.translation.x -= 1.0f * app->delta_time;
-				else
-					mesh.rotation.x -= 0.5f * app->delta_time;
-				break;
-			case SDLK_UP:
-				if (app->arrow_key_mode == 0)
-					mesh.translation.y += 1.0f * app->delta_time;
-				else
-					mesh.rotation.y += 0.5f * app->delta_time;
-				break;
-			case SDLK_DOWN:
-				if (app->arrow_key_mode == 0)
-					mesh.translation.y -= 1.0f * app->delta_time;
-				else
-					mesh.rotation.y -= 0.5f * app->delta_time;
 				break;
 
 			case SDLK_k:
@@ -172,20 +143,43 @@ void process_input(AppState *app)
 				camera.position.y -= 3.0f * app->delta_time;
 				break;
 
-			case SDLK_a:
-				camera.yaw -= 1.0f * app->delta_time;
+            case SDLK_w:
+                camera.forward_velocity = vec3_mul(camera.direction, camera.speed * app->delta_time);
+                camera.position = vec3_add(camera.position, camera.forward_velocity);
+                break;
+            case SDLK_s:
+                camera.forward_velocity = vec3_mul(camera.direction, camera.speed * app->delta_time);
+                camera.position = vec3_sub(camera.position, camera.forward_velocity);
+                break;
+
+            case SDLK_d:
+            {
+                vec3_t right = vec3_cross(camera.up, camera.direction);
+                vec3_normalize(&right);
+                camera.strafe_velocity = vec3_mul(right, camera.speed * app->delta_time);
+                camera.position = vec3_add(camera.position, camera.strafe_velocity);
+            } break;
+
+            case SDLK_a:
+            {
+                vec3_t right = vec3_cross(camera.up, camera.direction);
+                vec3_normalize(&right);
+                camera.strafe_velocity = vec3_mul(right, camera.speed * app->delta_time);
+                camera.position = vec3_sub(camera.position, camera.strafe_velocity);
+            } break;
+
+			case SDLK_LEFT:
+				camera.yaw -= camera.rotation_speed * app->delta_time;
 				break;
-			case SDLK_d:
-				camera.yaw += 1.0f * app->delta_time;
+			case SDLK_RIGHT:
+				camera.yaw += camera.rotation_speed * app->delta_time;
 				break;
 
-			case SDLK_w:
-				camera.forward_velocity = vec3_mul(camera.direction, 5.0f * app->delta_time);
-				camera.position = vec3_add(camera.position, camera.forward_velocity);
+			case SDLK_UP:
+				camera.pitch -= camera.rotation_speed * app->delta_time;
 				break;
-			case SDLK_s:
-				camera.forward_velocity = vec3_mul(camera.direction, 5.0f * app->delta_time);
-				camera.position = vec3_sub(camera.position, camera.forward_velocity);
+			case SDLK_DOWN:
+				camera.pitch += camera.rotation_speed * app->delta_time;
 				break;
 			}
 		}

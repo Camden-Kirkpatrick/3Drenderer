@@ -224,8 +224,7 @@ void animate_rectangles(Window *w, int num_rects, float dt)
 			inited[i] = true;
 		}
 
-
-		// new (keep rvx/rvy as your int “pixels/sec”):
+		// accumulators for x and y
 		ax[i] += 50 * rvx[i] * dt;
 		ay[i] += 50 * rvy[i] * dt;
 
@@ -367,7 +366,8 @@ void cleanup_rectangles(void)
 }
 
 
-void window_destroy(Window* w) {
+void window_destroy(Window* w)
+{
     if (!w) return;
     cleanup_rectangles(); // keep your rectangles cleanup
     if (w->color_buffer_texture) { SDL_DestroyTexture(w->color_buffer_texture); w->color_buffer_texture = NULL; }

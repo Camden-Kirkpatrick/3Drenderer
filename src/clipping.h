@@ -1,6 +1,10 @@
 #pragma once
 
 #include "vector.h"
+#include "triangle.h"
+
+#define MAX_NUM_POLYGON_VERTICES 10
+#define MAX_NUM_POLYGON_TRIANGLES 10
 
 enum
 {
@@ -18,4 +22,16 @@ typedef struct
     vec3_t normal;
  } plane_t;
 
-void init_frustum_planes(float fov, float znear, float zfar);
+
+typedef struct
+{
+    vec3_t vertices[MAX_NUM_POLYGON_VERTICES];
+    int num_vertices;
+} polygon_t;
+ 
+
+void init_frustum_planes(float fovx, float fovy, float znear, float zfar);
+polygon_t create_polygon_from_triangle(vec3_t v0, vec3_t v1, vec3_t v2);
+void triangles_from_polygon(polygon_t *polygon, triangle_t triangles[], int *num_triangles);
+void clip_polygon_against_plane(polygon_t *polygon, int plane);
+void clip_polygon(polygon_t *polygon);

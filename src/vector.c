@@ -95,6 +95,11 @@ vec3_t vec3_cross(vec3_t a, vec3_t b)
     return result;
 }
 
+vec3_t vec3_clone(vec3_t *v)
+{
+    return (vec3_t){v->x, v->y, v->z};
+}
+
 // Rotation of vectors
 vec3_t vec3_rotate_x(vec3_t v, float angle)
 {

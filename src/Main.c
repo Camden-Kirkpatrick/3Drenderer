@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <stdlib.h>
+#include <math.h>
 #include "display.h"
 #include "vector.h"
 #include "triangle.h"
@@ -46,21 +47,25 @@ void setup(AppState *app)
 
 	current_color = colors[color_index];
 
+	camera_init();
+
 	// Projection Matrix for Perspective Projeciton
-	float fov = M_PI / 3.0f; // 60 degree fov
-	float aspect_ratio = (float)app->win.width / app->win.height;
+	float aspectx = (float)app->win.width / app->win.height;
+	float aspecty = (float)app->win.height / app->win.width;
+	float fovy = M_PI / 3.0f; // 60 degree fov
+	float fovx = atanf(tanf(fovy / 2) * aspectx) * 2.0f;
 	float z_near = 0.1f;
 	float z_far = 100.0f;
-	proj_matrix = mat4_make_perspective(fov, aspect_ratio, z_near, z_far);
+	proj_matrix = mat4_make_perspective(fovy, aspectx, z_near, z_far);
 
 	// Initialize frustum planes with a point and a normal
-	init_frustum_planes(fov, z_near, z_far);
+	init_frustum_planes(fovx, fovy, z_near, z_far);
 
 	// Load the mesh in mesh.h
-	//load_cube_mesh_data();
+	load_cube_mesh_data();
 	// Load an object via an obj file
-	load_obj_file_data("./assets/f117.obj", RED);
-	load_png_texture_data("./assets/f117.png");
+	//load_obj_file_data("./assets/cube.obj", RED);
+	//load_png_texture_data("./assets/cube.png");
 }
 
 void update(AppState *app)
@@ -86,9 +91,9 @@ void update(AppState *app)
 	num_triangles_to_render = 0;
 
 	// Apply transformations to the mesh every frame
-	mesh.rotation.x += 0.5f * app->delta_time;
-	mesh.rotation.y += 0.5f * app->delta_time;
-	mesh.rotation.z += 0.5f * app->delta_time;
+	// mesh.rotation.x += 0.5f * app->delta_time;
+	// mesh.rotation.y += 0.5f * app->delta_time;
+	// mesh.rotation.z += 0.5f * app->delta_time;
 
 	// Translate the mesh away from the camera
 	mesh.translation.z = 5.0f;
@@ -98,32 +103,8 @@ void update(AppState *app)
 	// camera.position.y += 0.5f * app->delta_time;
 	// camera.position.z += 0.5f * app->delta_time;
 
-	// Create the View Matrix
-
-	// This code forces our camera to look at a single point
-	// The target is the point that our camera is looking at
-	// The taget.z is set to the mesh.translation.z so that we look at the mesh
-	// vec3_t look_at = {0.0f, 0.0f, 5.0f};
-	// // Up is usually "y = 1" for the camera
-	// vec3_t up_direction = {0.0f, 1.0f, 0.0f};
-	// view_matrix = mat4_look_at(camera.position, look_at, up_direction);
-
-
-	// This code implements a basic FPS camera movement
-	// Start with a "default forward" vector (the nose of the camera when yaw=0).
-	vec3_t forward = {0.0f, 0.0f, 1.0f};
-	vec3_t up_direction = {0.0f, 1.0f, 0.0f};
-
-	// Rotate that forward vector around the Y axis by the camera's yaw angle.
-	// This gives us the actual direction the camera is currently facing.
-	mat4_t camera_yaw_rotation = mat4_make_rotation_y(camera.yaw);
-	camera.direction = vec3_from_vec4(mat4_mul_vec4(camera_yaw_rotation, vec4_from_vec3(forward)));
-
-	// 3. Figure out a "look at" point: the camera's position plus one step forward
-	// in its facing direction.
-	vec3_t look_at = vec3_add(camera.position, camera.direction);
-
-	view_matrix = mat4_look_at(camera.position, look_at, up_direction);
+	camera_update_direction();
+	view_matrix = mat4_look_at(camera.position, camera.target, camera.up);
 
 	// Create a scale, translation, and rotation matrix that will be used to transform our mesh vertices
 	mat4_t scale_matrix = mat4_make_scale(mesh.scale.x, mesh.scale.y, mesh.scale.z);
@@ -171,7 +152,6 @@ void update(AppState *app)
 		}
 
 		// Backface Culling Algorithm
-
 		// These are the vectors that make up the triangle
 		vec3_t vec_a = vec3_from_vec4(transformed_vertices[0]);
 		vec3_t vec_b = vec3_from_vec4(transformed_vertices[1]);
@@ -200,64 +180,85 @@ void update(AppState *app)
 			}
 		}
 
-		vec4_t projected_points[3];
+		// Clip the triangle
+		polygon_t polygon = create_polygon_from_triangle(
+			vec3_from_vec4(transformed_vertices[0]),
+			vec3_from_vec4(transformed_vertices[1]),
+			vec3_from_vec4(transformed_vertices[2])
+		);
 
-		for (int j = 0; j < 3; j++)
+		// Clip the polygon and return a new polygon that has been modified
+		clip_polygon(&polygon);
+
+		// Break the clipped polygon into triangles
+		triangle_t triangles_after_clipping[MAX_NUM_POLYGON_TRIANGLES];
+		int num_triangles_after_clipping = 0;
+		triangles_from_polygon(&polygon, triangles_after_clipping, &num_triangles_after_clipping);
+
+		// Loop all the assembled triangles after clipping
+		for (int t = 0; t < num_triangles_after_clipping; t++)
 		{
-			// Project the vertex
-			projected_points[j] = mat4_mul_vec4_project(proj_matrix, transformed_vertices[j]);
+			triangle_t triangle_after_clipping = triangles_after_clipping[t];
 
-			// Invert the y-axis to account for y growing top-down
-			projected_points[j].y *= -1;
+			vec4_t projected_points[3];
 
-			// Scale each vertex, which will end up scaling the object
-			projected_points[j].x *= (app->win.width / 2.0f);
-			projected_points[j].y *= (app->win.height / 2.0f);
-
-			// Translate each vertex so that they are inside our window
-			projected_points[j].x += (app->win.width / 2.0f);
-			projected_points[j].y += (app->win.height / 2.0f);
-		}
-
-		uint32_t triangle_color;
-		// Flat Shading
-		if (lighting)
-		{
-			// Calculate the shade intensity based on how alligned the normal and the inverse of the light ray
-			float light_intensity_factor = -vec3_dot(normal, light.direction);
-			// Calculate the new color
-			triangle_color = light_apply_intensity(mesh_face.color, light_intensity_factor);
-		}
-		else
-		{
-			triangle_color = mesh_face.color;
-		}
-
-		// This will store the final triangle to render
-		triangle_t projected_triangle = {
-			// Save each projected vertex in the triangle
-			.points =
+			for (int j = 0; j < 3; j++)
 			{
-				{projected_points[0].x, projected_points[0].y, projected_points[0].z, projected_points[0].w},
-				{projected_points[1].x, projected_points[1].y, projected_points[1].z, projected_points[1].w},
-				{projected_points[2].x, projected_points[2].y, projected_points[2].z, projected_points[2].w}
-			},
-			.texcoords =
+				// Project the vertex
+				projected_points[j] = mat4_mul_vec4_project(proj_matrix, triangle_after_clipping.points[j]);
+
+				// Invert the y-axis to account for y growing top-down
+				projected_points[j].y *= -1;
+
+				// Scale each vertex, which will end up scaling the object
+				projected_points[j].x *= (app->win.width / 2.0f);
+				projected_points[j].y *= (app->win.height / 2.0f);
+
+				// Translate each vertex so that they are inside our window
+				projected_points[j].x += (app->win.width / 2.0f);
+				projected_points[j].y += (app->win.height / 2.0f);
+			}
+
+			uint32_t triangle_color;
+			// Flat Shading
+			if (lighting)
 			{
-				{mesh_face.a_uv.u, mesh_face.a_uv.v},
-				{mesh_face.b_uv.u, mesh_face.b_uv.v},
-				{mesh_face.c_uv.u, mesh_face.c_uv.v}
-			},
-			.color = triangle_color,
-		};
+				// Calculate the shade intensity based on how alligned the normal and the inverse of the light ray
+				float light_intensity_factor = -vec3_dot(normal, light.direction);
+				// Calculate the new color
+				triangle_color = light_apply_intensity(mesh_face.color, light_intensity_factor);
+			}
+			else
+			{
+				triangle_color = mesh_face.color;
+			}
 
-        // Save the projected triangle in the array of triangles to render
-        if (num_triangles_to_render < MAX_TRIANGLES) {
-            triangles_to_render[num_triangles_to_render++] = projected_triangle;
-        }
+			// This will store the final triangle to render
+			triangle_t triangle_to_render = {
+				// Save each projected vertex in the triangle
+				.points =
+				{
+					{projected_points[0].x, projected_points[0].y, projected_points[0].z, projected_points[0].w},
+					{projected_points[1].x, projected_points[1].y, projected_points[1].z, projected_points[1].w},
+					{projected_points[2].x, projected_points[2].y, projected_points[2].z, projected_points[2].w}
+				},
+				.texcoords =
+				{
+					{mesh_face.a_uv.u, mesh_face.a_uv.v},
+					{mesh_face.b_uv.u, mesh_face.b_uv.v},
+					{mesh_face.c_uv.u, mesh_face.c_uv.v}
+				},
+				.color = triangle_color,
+			};
 
-		// Add the projected triangle to the array of traingles to render
-		//array_push(triangles_to_render, projected_triangle);
+			// Save the projected triangle in the array of triangles to render
+			if (num_triangles_to_render < MAX_TRIANGLES) {
+				triangles_to_render[num_triangles_to_render++] = triangle_to_render;
+			}
+
+			// Add the projected triangle to the array of traingles to render
+			//array_push(triangles_to_render, projected_triangle);
+		}
 	}
 }
 
@@ -270,6 +271,8 @@ void render(AppState *app)
 
 	// draw_filled_circle(950, 1000, 200, ORANGE);
 	// draw_filled_circle(2900, 1000, 200, CYAN);
+
+	draw_dotted_grid(&app->win, 0, 0, app->win.width - 1, app->win.height - 1, 30, DARK_GRAY);
 
 	//int num_triangles = array_length(triangles_to_render);
 	int num_triangles = num_triangles_to_render;
@@ -328,8 +331,6 @@ void render(AppState *app)
 	}
 
 	//animate_rectangles(&app->win, rect_count, app->paused ? 0.0f : app->delta_time);
-
-	// draw_dotted_grid(&app->win, 0, 0, app->win.width - 1, app->win.height - 1, 42, RED);
 
 	// draw_filled_circle(&app->win, 1925, 200, 200, GREEN);
 	// draw_filled_circle(&app->win, 1925, 1900, 200, YELLOW);

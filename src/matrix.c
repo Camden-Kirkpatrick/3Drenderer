@@ -117,13 +117,13 @@ mat4_t mat4_make_rotation_z(float angle)
     return m;
 }
 
-mat4_t mat4_make_perspective(float fov, float aspect_ratio, float z_near, float z_far)
+mat4_t mat4_make_perspective(float fovy, float aspect_ratio, float z_near, float z_far)
 {
     // | 1/(tan(fov/2) * w/h)             0              0                 0 |
     // |                  0    1/tan(fov/2)              0                 0 |
     // |                  0               0     zf/(zf-zn)  -(zf*zn)/(zf-zn) |
     // |                  0               0              1                 0 |
-    float d = 1 / tanf(fov * 0.5f);
+    float d = 1 / tanf(fovy * 0.5f);
     float a = z_far / (z_far - z_near);
     float b = -(z_far * z_near) / (z_far - z_near);
     mat4_t m = {{{0}}};
@@ -143,7 +143,7 @@ vec4_t mat4_mul_vec4_project(mat4_t proj_mat, vec4_t v)
     vec4_t result = mat4_mul_vec4(proj_mat, v);
 
     // Perform perspective divide to get normalized coordinates
-    if (result.w != 0.0)
+    if (result.w != 0.0f)
     {
         result.x /= result.w;
         result.y /= result.w;
@@ -153,20 +153,21 @@ vec4_t mat4_mul_vec4_project(mat4_t proj_mat, vec4_t v)
     return result;
 }
 
-// Given the camera position, a point to look at, and the top of the camera
+// Given the camera position, a target point to look at, and the top of the camera
 // create a View Matrix
-mat4_t mat4_look_at(vec3_t eye, vec3_t look_at, vec3_t up)
+mat4_t mat4_look_at(vec3_t eye, vec3_t target, vec3_t world_up)
 {
-    vec3_t z = vec3_sub(look_at, eye);
+    vec3_t z = vec3_sub(target, eye);
     vec3_normalize(&z);
-    vec3_t x = vec3_cross(up, z);
+    vec3_t x = vec3_cross(world_up, z);
     vec3_normalize(&x);
     vec3_t y = vec3_cross(z, x);
 
     mat4_t view_matrix = {{
         {x.x, x.y, x.z, -vec3_dot(x, eye)},
         {y.x, y.y, y.z, -vec3_dot(y, eye)},
-        {z.x, z.y, z.z, -vec3_dot(z, eye)}
+        {z.x, z.y, z.z, -vec3_dot(z, eye)},
+        {0.0f, 0.0f, 0.0f, 1.0f}
     }};
 
     return view_matrix;
