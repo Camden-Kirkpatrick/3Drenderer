@@ -94,27 +94,12 @@ void process_input(AppState *app)
 				mesh.rotation.z -= 0.5f * app->delta_time;
 				break;
 
-			// Grow objects
 			case SDLK_EQUALS:
-				const float MAX_SCALE = 2.0f;
-
-				if (mesh.scale.x < MAX_SCALE)
-					mesh.scale.x += 0.5f * app->delta_time;
-				if (mesh.scale.x < MAX_SCALE)
-					mesh.scale.y += 0.5f * app->delta_time;
-				if (mesh.scale.x < MAX_SCALE)
-					mesh.scale.z += 0.5f * app->delta_time;
+				camera.speed++;
 				break;
-			// Shrink objects
 			case SDLK_MINUS:
-				const float MIN_SCALE = 0.01f;
-
-				if (mesh.scale.x > MIN_SCALE)
-					mesh.scale.x -= 0.5f * app->delta_time;
-				if (mesh.scale.y > MIN_SCALE)
-					mesh.scale.y -= 0.5f * app->delta_time;
-				if (mesh.scale.z > MIN_SCALE)
-					mesh.scale.z -= 0.5f * app->delta_time;
+				if (camera.speed > 0)
+					camera.speed--;
 				break;
 
 			// Cycle through different colors for an object
@@ -137,10 +122,10 @@ void process_input(AppState *app)
 				break;
 
 			case SDLK_SPACE:
-				camera.position.y += 3.0f * app->delta_time;
+				camera.position.y += camera.speed * app->delta_time;
 				break;
 			case SDLK_LSHIFT:
-				camera.position.y -= 3.0f * app->delta_time;
+				camera.position.y -= camera.speed * app->delta_time;
 				break;
 
             case SDLK_w:

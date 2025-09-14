@@ -19,34 +19,22 @@
 #include "mesh.h"
 #include "app.h"
 
-int previous_frame_time = 0;
-int was_paused = 0;
-
-mat4_t world_matrix;
-mat4_t view_matrix;
-mat4_t proj_matrix;
-
 //triangle_t *triangles_to_render = NULL;
 
 #define MAX_TRIANGLES 10000
 triangle_t triangles_to_render[MAX_TRIANGLES];
 int num_triangles_to_render = 0;
 
+mat4_t world_matrix;
+mat4_t view_matrix;
+mat4_t proj_matrix;
+
 // Used with the animate_rectangles function
 int rect_count = 20;
 
 void setup(AppState *app)
 {
-	app->paused = false,
-	app->fps = 60;
-	app->frame_target_time = 1000 / app->fps; // time between each frame
-	app->delta_time = 0.0f;
-    app->arrow_key_mode = 0; // toggle between translating and rotating the mesh
-	app->render_method = RENDER_WIRE;
-	app->cull = true;
-
-	current_color = colors[color_index];
-
+	app_init(app);
 	camera_init();
 
 	// Projection Matrix for Perspective Projeciton
@@ -62,10 +50,12 @@ void setup(AppState *app)
 	init_frustum_planes(fovx, fovy, z_near, z_far);
 
 	// Load the mesh in mesh.h
-	load_cube_mesh_data();
+	//load_cube_mesh_data();
 	// Load an object via an obj file
-	//load_obj_file_data("./assets/cube.obj", RED);
-	//load_png_texture_data("./assets/cube.png");
+	load_obj_file_data("./assets/crab.obj", GRAY);
+	load_png_texture_data("./assets/crab.png");
+
+	current_color = colors[color_index];
 }
 
 void update(AppState *app)
@@ -78,30 +68,20 @@ void update(AppState *app)
 	// }
 
 	// Make sure the desired FPS is reached
-	int time_to_wait = app->frame_target_time - (SDL_GetTicks() - previous_frame_time);
+	int time_to_wait = app->frame_target_time - (SDL_GetTicks() - app->previous_frame_time);
 
 	if (time_to_wait > 0 && time_to_wait < app->frame_target_time)
 		SDL_Delay(time_to_wait);
 
 	// Delta time is the time since the previous frame, and it is used for consistent animations, regardless of FPS
-	app->delta_time = (SDL_GetTicks() - previous_frame_time) / 1000.0f;
+	app->delta_time = (SDL_GetTicks() - app->previous_frame_time) / 1000.0f;
 
-	previous_frame_time = SDL_GetTicks();
+	app->previous_frame_time = SDL_GetTicks();
 
 	num_triangles_to_render = 0;
 
-	// Apply transformations to the mesh every frame
-	// mesh.rotation.x += 0.5f * app->delta_time;
-	// mesh.rotation.y += 0.5f * app->delta_time;
-	// mesh.rotation.z += 0.5f * app->delta_time;
-
 	// Translate the mesh away from the camera
 	mesh.translation.z = 5.0f;
-
-	// Apply transformations to the camera every frame
-	// camera.position.x += 0.5f * app->delta_time;
-	// camera.position.y += 0.5f * app->delta_time;
-	// camera.position.z += 0.5f * app->delta_time;
 
 	camera_update_direction();
 	view_matrix = mat4_look_at(camera.position, camera.target, camera.up);
@@ -252,7 +232,8 @@ void update(AppState *app)
 			};
 
 			// Save the projected triangle in the array of triangles to render
-			if (num_triangles_to_render < MAX_TRIANGLES) {
+			if (num_triangles_to_render < MAX_TRIANGLES)
+			{
 				triangles_to_render[num_triangles_to_render++] = triangle_to_render;
 			}
 
@@ -271,8 +252,6 @@ void render(AppState *app)
 
 	// draw_filled_circle(950, 1000, 200, ORANGE);
 	// draw_filled_circle(2900, 1000, 200, CYAN);
-
-	draw_dotted_grid(&app->win, 0, 0, app->win.width - 1, app->win.height - 1, 30, DARK_GRAY);
 
 	//int num_triangles = array_length(triangles_to_render);
 	int num_triangles = num_triangles_to_render;
@@ -335,6 +314,8 @@ void render(AppState *app)
 	// draw_filled_circle(&app->win, 1925, 200, 200, GREEN);
 	// draw_filled_circle(&app->win, 1925, 1900, 200, YELLOW);
 
+	draw_dotted_grid(&app->win, 0, 0, app->win.width - 1, app->win.height - 1, 30, DARK_GRAY);
+
 	// draw_checker_board(&app->win, 40, 40, app->win.height/40, app->win.width/40, LIGHT_GRAY, DARK_GRAY, WHITE);
 
 	// Copy the pixel data over to the SDL texture
@@ -373,10 +354,10 @@ int main(int argc, char **argv)
 
 		// This prevents the next delta_time calculation from including the whole
 		// pause duration (which would otherwise make dt huge on the first update).
-		if (was_paused && !app.paused)
-			previous_frame_time = SDL_GetTicks();
+		if (app.was_paused && !app.paused)
+			app.previous_frame_time = SDL_GetTicks();
 
-    	was_paused = app.paused;
+    	app.was_paused = app.paused;
 
 		if (!(app.paused))
 		{
