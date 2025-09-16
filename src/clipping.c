@@ -64,10 +64,11 @@ void init_frustum_planes(float fovx, float fovy, float z_near, float z_far)
 	frustum_planes[FAR_FRUSTUM_PLANE].normal.z = -1;
 }
 
-polygon_t create_polygon_from_triangle(vec3_t v0, vec3_t v1, vec3_t v2)
+polygon_t create_polygon_from_triangle(vec3_t v0, vec3_t v1, vec3_t v2, tex2_t t0, tex2_t t1, tex2_t t2)
 {
 	return (polygon_t){
 		.vertices = {v0, v1, v2},
+		.texcoords = {t0, t1, t2},
 		.num_vertices = 3
 	};
 }
@@ -83,8 +84,17 @@ void triangles_from_polygon(polygon_t *polygon, triangle_t triangles[], int *num
 		triangles[i].points[0] = vec4_from_vec3(polygon->vertices[index0]);
 		triangles[i].points[1] = vec4_from_vec3(polygon->vertices[index1]);
 		triangles[i].points[2] = vec4_from_vec3(polygon->vertices[index2]);
+
+		triangles[i].texcoords[0] = polygon->texcoords[index0];
+		triangles[i].texcoords[1] = polygon->texcoords[index1];
+		triangles[i].texcoords[2] = polygon->texcoords[index2];
 	}
 	*num_triangles = polygon->num_vertices - 2;
+}
+
+float float_lerp(float a, float b, float t)
+{
+	return a + t * (b - a);
 }
 
 void clip_polygon_against_plane(polygon_t *polygon, int plane)
@@ -94,11 +104,14 @@ void clip_polygon_against_plane(polygon_t *polygon, int plane)
 
 	// Store the vertices of the final clipped polygon
 	vec3_t inside_vertices[MAX_NUM_POLYGON_VERTICES];
+	tex2_t inside_texcoords[MAX_NUM_POLYGON_VERTICES];
 	int num_inside_vertices = 0;
 
 	// Keep track of the current and previous vertex of the polygon
 	vec3_t *current_vertex = &polygon->vertices[0]; // first vertex
+	tex2_t *current_texcoord = &polygon->texcoords[0];
 	vec3_t *previous_vertex = &polygon->vertices[polygon->num_vertices - 1]; // last vertex
+	tex2_t *previous_texcoord = &polygon->texcoords[polygon->num_vertices - 1];
 
 	// Find the dot product of the current and previous vertex, so we know if they are inside or outside the plane
 	// dot = 0 -> vertex is exactly on the plane
@@ -119,27 +132,43 @@ void clip_polygon_against_plane(polygon_t *polygon, int plane)
 			// Calculate the linear interpolation factor 't', t = dotQ1 / (dotQ1 - dotQ2)
 			float t = previous_dot / (previous_dot - current_dot);
 
-			// Calculate the intersection point, I = Q1 + t(Q2 - Q1)
-			vec3_t intersection_point = vec3_clone(current_vertex); 			 // I = current vertex
-			intersection_point = vec3_sub(intersection_point, *previous_vertex); // I = Q2 - Q1
-			intersection_point = vec3_mul(intersection_point, t); 				 // I = t(Q2 - Q1)
-			intersection_point = vec3_add(*previous_vertex, intersection_point); // I = Q1 + t(Q2 - Q1)
+			// Calculate the intersection point
+			vec3_t intersection_point = {
+				.x = float_lerp(previous_vertex->x, current_vertex->x, t),
+				.y = float_lerp(previous_vertex->y, current_vertex->y, t),
+				.z = float_lerp(previous_vertex->z, current_vertex->z, t),
+			};
 
-			inside_vertices[num_inside_vertices++] = vec3_clone(&intersection_point);
+			// Calculate the interpolated texture coordinate
+			tex2_t interpolated_texcoord = {
+				.u = float_lerp(previous_texcoord->u, current_texcoord->u, t),
+				.v = float_lerp(previous_texcoord->v, current_texcoord->v, t)
+			};
+
+			inside_vertices[num_inside_vertices] = vec3_clone(&intersection_point);
+			inside_texcoords[num_inside_vertices] = tex2_clone(&interpolated_texcoord);
+			num_inside_vertices++;
 		}
 
 		// If the current vertex is inside the plane
 		if (current_dot > 0)
-			inside_vertices[num_inside_vertices++] = vec3_clone(current_vertex);
+		{
+			inside_vertices[num_inside_vertices] = vec3_clone(current_vertex);
+			inside_texcoords[num_inside_vertices] = tex2_clone(current_texcoord);
+			num_inside_vertices++;
+		}
 
 		previous_dot = current_dot;
 		previous_vertex = current_vertex;
+		previous_texcoord = current_texcoord;
 		current_vertex++; // increment the pointer to the next element
+		current_texcoord++;
 	}
 	// Copy all the inside vertices into the original polygon 
 	for (int i = 0; i < num_inside_vertices; i++)
 	{
 		polygon->vertices[i] = inside_vertices[i];
+		polygon->texcoords[i] = inside_texcoords[i];
 	}
 	polygon->num_vertices = num_inside_vertices;
 }

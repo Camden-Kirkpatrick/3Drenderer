@@ -16,3 +16,4 @@ extern int texture_width;
 extern int texture_height;
 
 void load_png_texture_data(const char* filepath);
+tex2_t tex2_clone(tex2_t *t);

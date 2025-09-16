@@ -1,5 +1,6 @@
 #include <SDL2/SDL.h>
 #include <stdbool.h>
+#include <math.h>
 #include "keyboard.h"
 #include "mesh.h"
 #include "display.h"
@@ -78,13 +79,19 @@ void process_input(AppState *app)
 				app->render_method = RENDER_TEXTURED_WIRE_VERTEX;
 				break;
 
+			case SDLK_9:
+				app->fovy -= 0.02f;
+				app->fovx = atanf(tanf(app->fovy / 2) * app->aspectx) * 2.0f;
+				break;
+			case SDLK_0:
+				app->fovy += 0.02f;
+				app->fovx = atanf(tanf(app->fovy / 2) * app->aspectx) * 2.0f;
+				break;
+				
+
 			// Enable or disable Back-face Culling
 			case SDLK_c:
 				app->cull = !(app->cull);
-				break;
-
-			case SDLK_b:
-				app->arrow_key_mode = (app->arrow_key_mode == 0 ? 1 : 0);
 				break;
 
 			case SDLK_k:

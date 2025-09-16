@@ -158,19 +158,6 @@ vec3_t barycentric_weights(vec2_t a, vec2_t b, vec2_t c, vec2_t p)
     return (vec3_t){alpha, beta, gamma};
 }
 
-// Clamp/wrap helper
-static inline float clamp_wrap(float v)
-{
-    // If 'v' is not a valid floating-point value (NaN or Infinity, usually from 
-    // dividing by a very small w during perspective correction), return 0 to 
-    // prevent invalid texture lookups
-    if (!isfinite(v)) return 0.0f;
-
-    if (v < 0.0f) return 0.0f;             // clamp negatives
-    if (v > 1.0f) return v - floorf(v);    // wrap values > 1.0 into [0,1)
-    return v;                              // already in range
-}
-
 void draw_texel(
         Window *w,
         int x, int y, uint32_t *texture,
@@ -211,18 +198,20 @@ void draw_texel(
     interpolated_u /= interpolated_reciprocal_w;
     interpolated_v /= interpolated_reciprocal_w;
 
-    float u = clamp_wrap(interpolated_u);
-    float v = clamp_wrap(interpolated_v);
-
     // Since U,V have an origin in the bottom left, and the texture has an origin in the top left,
     // we have to flip V, by doing 1.0 - V
-    v = 1.0f - v;
+    interpolated_v = 1.0f - interpolated_v;
 
     // Scale normalized UVs (0–1 range) up to texture pixel coordinates.
     // Multiplying by (width-1) and (height-1) converts the UVs into valid
     // integer texel indices, ensuring u=1.0 or v=1.0 maps to the last pixel.
-    int tex_x = (int)(u * (texture_width - 1));
-    int tex_y = (int)(v * (texture_height - 1));
+    // int tex_x = (int)(u * (texture_width - 1));
+    // int tex_y = (int)(v * (texture_height - 1));
+
+    // NEW (round to nearest)
+    int tex_x = (int)lroundf(interpolated_u * (texture_width  - 1));
+    int tex_y = (int)lroundf(interpolated_v * (texture_height - 1));
+
 
     // Adjust 1/w, so that pixels that are closer to the camera have a smaller value
     interpolated_reciprocal_w = 1.0f - interpolated_reciprocal_w;

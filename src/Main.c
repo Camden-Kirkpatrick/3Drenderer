@@ -37,23 +37,14 @@ void setup(AppState *app)
 	app_init(app);
 	camera_init();
 
-	// Projection Matrix for Perspective Projeciton
-	float aspectx = (float)app->win.width / app->win.height;
-	float aspecty = (float)app->win.height / app->win.width;
-	float fovy = M_PI / 3.0f; // 60 degree fov
-	float fovx = atanf(tanf(fovy / 2) * aspectx) * 2.0f;
-	float z_near = 0.1f;
-	float z_far = 100.0f;
-	proj_matrix = mat4_make_perspective(fovy, aspectx, z_near, z_far);
-
 	// Initialize frustum planes with a point and a normal
-	init_frustum_planes(fovx, fovy, z_near, z_far);
+	// init_frustum_planes(app->fovx, app->fovy, z_near, z_far);
 
 	// Load the mesh in mesh.h
-	//load_cube_mesh_data();
+	// load_cube_mesh_data();
 	// Load an object via an obj file
-	load_obj_file_data("./assets/crab.obj", GRAY);
-	load_png_texture_data("./assets/crab.png");
+	load_obj_file_data("./assets/f117.obj", GRAY);
+	load_png_texture_data("./assets/f117.png");
 
 	current_color = colors[color_index];
 }
@@ -73,7 +64,7 @@ void update(AppState *app)
 	if (time_to_wait > 0 && time_to_wait < app->frame_target_time)
 		SDL_Delay(time_to_wait);
 
-	// Delta time is the time since the previous frame, and it is used for consistent animations, regardless of FPS
+	// Delta time is the time since the previous frame in seconds, and itd used for consistent animations, regardless of FPS
 	app->delta_time = (SDL_GetTicks() - app->previous_frame_time) / 1000.0f;
 
 	app->previous_frame_time = SDL_GetTicks();
@@ -82,6 +73,9 @@ void update(AppState *app)
 
 	// Translate the mesh away from the camera
 	mesh.translation.z = 5.0f;
+
+	init_frustum_planes(app->fovx, app->fovy, app->znear, app->zfar);
+	proj_matrix = mat4_make_perspective(app->fovy, app->aspectx, app->znear, app->zfar);
 
 	camera_update_direction();
 	view_matrix = mat4_look_at(camera.position, camera.target, camera.up);
@@ -164,7 +158,10 @@ void update(AppState *app)
 		polygon_t polygon = create_polygon_from_triangle(
 			vec3_from_vec4(transformed_vertices[0]),
 			vec3_from_vec4(transformed_vertices[1]),
-			vec3_from_vec4(transformed_vertices[2])
+			vec3_from_vec4(transformed_vertices[2]),
+			mesh_face.a_uv,
+			mesh_face.b_uv,
+			mesh_face.c_uv
 		);
 
 		// Clip the polygon and return a new polygon that has been modified
@@ -224,9 +221,9 @@ void update(AppState *app)
 				},
 				.texcoords =
 				{
-					{mesh_face.a_uv.u, mesh_face.a_uv.v},
-					{mesh_face.b_uv.u, mesh_face.b_uv.v},
-					{mesh_face.c_uv.u, mesh_face.c_uv.v}
+					{triangle_after_clipping.texcoords[0].u, triangle_after_clipping.texcoords[0].v},
+					{triangle_after_clipping.texcoords[1].u, triangle_after_clipping.texcoords[1].v},
+					{triangle_after_clipping.texcoords[2].u, triangle_after_clipping.texcoords[2].v},
 				},
 				.color = triangle_color,
 			};
@@ -365,6 +362,8 @@ int main(int argc, char **argv)
 		}
 		render(&app);
 	}
+
+	get_app_info(&app);
 
 	window_destroy(&app.win);
 	free_resources();

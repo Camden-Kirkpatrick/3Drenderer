@@ -7,10 +7,12 @@ mat4_t mat4_identity(void)
     // | 0 1 0 0 |
     // | 0 0 1 0 |
     // | 0 0 0 1 |
-    mat4_t m = {{{1, 0, 0, 0},
-                 {0, 1, 0, 0},
-                 {0, 0, 1, 0},
-                 {0, 0, 0, 1}}};
+    mat4_t m = {{
+        {1, 0, 0, 0},
+        {0, 1, 0, 0},
+        {0, 0, 1, 0},
+        {0, 0, 0, 1}
+    }};
     return m;
 }
 
@@ -155,11 +157,11 @@ vec4_t mat4_mul_vec4_project(mat4_t proj_mat, vec4_t v)
 
 // Given the camera position, a target point to look at, and the top of the camera
 // create a View Matrix
-mat4_t mat4_look_at(vec3_t eye, vec3_t target, vec3_t world_up)
+mat4_t mat4_look_at(vec3_t eye, vec3_t target, vec3_t up)
 {
     vec3_t z = vec3_sub(target, eye);
     vec3_normalize(&z);
-    vec3_t x = vec3_cross(world_up, z);
+    vec3_t x = vec3_cross(up, z);
     vec3_normalize(&x);
     vec3_t y = vec3_cross(z, x);
 
