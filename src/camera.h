@@ -7,7 +7,7 @@ typedef struct
     vec3_t position;         // Where the camera is in the world
     vec3_t direction;        // Which way it’s looking
     vec3_t target;           // What point the camera is looking at
-    vec3_t up;               // What direction "up" is for the camera
+    vec3_t up;               // Default up direction for the camera with no rotation
     vec3_t forward;          // Default camera look direction with no rotation
     float speed;             // How fast the camera moves
     float rotation_speed;    // How fast the camera rotates

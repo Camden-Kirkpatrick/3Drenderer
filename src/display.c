@@ -43,6 +43,7 @@ bool window_init(Window* w, int req_w, int req_h)
 {
     SDL_Init(SDL_INIT_EVERYTHING);
 
+
     if (req_w > 0 && req_h > 0)
 	{
         w->width  = req_w;
@@ -56,9 +57,8 @@ bool window_init(Window* w, int req_w, int req_h)
         w->height = dm.h;
     }
 
-    // 1) Create the window first, with known nonzero size
     w->sdl_window = SDL_CreateWindow(NULL, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                     w->width, w->height, SDL_WINDOW_BORDERLESS);
+                					 w->width, w->height, SDL_WINDOW_BORDERLESS);
     if (!w->sdl_window) return false;
 
     w->renderer = SDL_CreateRenderer(w->sdl_window, -1, 0);
@@ -87,9 +87,9 @@ void render_color_buffer(Window *w)
 
 void draw_pixel(Window *w, int x, int y, uint32_t color)
 {
-	// Make sure the pixel is in bounds of the window
-	if (x < w->width && x >= 0 && y < w->height && y >= 0)
-		w->color_buffer[(w->width * y) + x] = color;
+    if (x < 0 || x >= w->width || y < 0 || y >= w->height)
+        return;
+    w->color_buffer[(w->width * y) + x] = color;
 }
 
 void draw_rectangle(Window *w, int x, int y, int width, int height, uint32_t color)
@@ -326,8 +326,7 @@ void draw_filled_circle(Window *w, int cx, int cy, int rad, uint32_t color)
 
 void clear_color_buffer(Window *w, uint32_t color)
 {
-	int num_pixels = w->width * w->height;
-	for (int i = 0; i < num_pixels; i++)
+	for (int i = 0; i < w->width * w->height; i++)
 	{
 		w->color_buffer[i] = color;
 	}
@@ -335,8 +334,7 @@ void clear_color_buffer(Window *w, uint32_t color)
 
 void clear_z_buffer(Window *w)
 {
-	int num_pixels = w->width * w->height;
-	for (int i = 0; i < num_pixels; i++)
+	for (int i = 0; i <  w->width * w->height; i++)
 	{
 		w->z_buffer[i] = 1.0f;
 	}
