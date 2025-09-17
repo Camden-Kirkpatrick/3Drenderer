@@ -14,7 +14,7 @@ void camera_init(void)
 
     camera.yaw              = 0.0f;
     camera.pitch            = 0.0f;
-    camera.speed            = 2.0f;
+    camera.speed            = 1.0f;
     camera.rotation_speed   = 1.0f;
     camera.forward_velocity = (vec3_t){0, 0, 0};
     camera.strafe_velocity  = (vec3_t){0, 0, 0};
@@ -22,11 +22,6 @@ void camera_init(void)
 
 void camera_update_direction(void)
 {
-    // Ensure you can't look up/down to high/low
-    const float MAX_PITCH = (float)(3.14159265358979323846 * 0.5f - 0.001f);
-    if (camera.pitch >  MAX_PITCH) camera.pitch =  MAX_PITCH;
-    if (camera.pitch < -MAX_PITCH) camera.pitch = -MAX_PITCH;
-
     // Rotation in X and Y
     mat4_t Rx = mat4_make_rotation_x(camera.pitch);
     mat4_t Ry = mat4_make_rotation_y(camera.yaw);

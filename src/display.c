@@ -35,14 +35,12 @@ static int *rvx = NULL;
 static int *rvy = NULL;
 static uint32_t *rcolor = NULL;
 static int allocated = 0;
-
 static float *ax = NULL;  // subpixel accumulator X
 static float *ay = NULL;  // subpixel accumulator Y
 
 bool window_init(Window* w, int req_w, int req_h)
 {
     SDL_Init(SDL_INIT_EVERYTHING);
-
 
     if (req_w > 0 && req_h > 0)
 	{

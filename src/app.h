@@ -19,8 +19,10 @@ typedef struct {
     float fovx;
     enum Render_Method render_method;
     bool cull;
+    int texture_choice;
+    char *file_name;
     Window win;
 } AppState;
 
-void app_init(AppState *app);
+void app_init(AppState *app, int texture_choice);
 void get_app_info(AppState *app);

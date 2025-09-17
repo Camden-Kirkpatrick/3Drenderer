@@ -202,15 +202,17 @@ void draw_texel(
     // we have to flip V, by doing 1.0 - V
     interpolated_v = 1.0f - interpolated_v;
 
-    // Scale normalized UVs (0–1 range) up to texture pixel coordinates.
-    // Multiplying by (width-1) and (height-1) converts the UVs into valid
-    // integer texel indices, ensuring u=1.0 or v=1.0 maps to the last pixel.
-    // int tex_x = (int)(u * (texture_width - 1));
-    // int tex_y = (int)(v * (texture_height - 1));
 
-    // NEW (round to nearest)
-    int tex_x = (int)lroundf(interpolated_u * (texture_width  - 1));
-    int tex_y = (int)lroundf(interpolated_v * (texture_height - 1));
+    // Scale normalized UVs (0–1 range) up to texture pixel coordinates
+    int tex_x = (int)(interpolated_u * (texture_width  - 1));
+    int tex_y = (int)(interpolated_v * (texture_height - 1));
+
+    // Ensure tex_x and tex_y are in the range [0, texture_width/height - 1]
+    if (tex_x < 0) tex_x = 0;
+    else if (tex_x >= texture_width) tex_x = texture_width - 1;
+
+    if (tex_y < 0) tex_y = 0;
+    else if (tex_y >= texture_height) tex_y = texture_height - 1;
 
 
     // Adjust 1/w, so that pixels that are closer to the camera have a smaller value

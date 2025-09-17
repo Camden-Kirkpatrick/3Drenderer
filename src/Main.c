@@ -34,7 +34,6 @@ int rect_count = 20;
 
 void setup(AppState *app)
 {
-	app_init(app);
 	camera_init();
 
 	// Initialize frustum planes with a point and a normal
@@ -42,9 +41,20 @@ void setup(AppState *app)
 
 	// Load the mesh in mesh.h
 	// load_cube_mesh_data();
+	
+	char obj_file_path[50] = "./assets/";
+	strcat(obj_file_path, app->file_name);
+	strcat(obj_file_path, ".obj");
+
+	char png_file_path[50] = "./assets/";
+	strcat(png_file_path, app->file_name);
+	strcat(png_file_path, ".png");
+
+	printf("OBJ: %s\nPNG: %s\n", obj_file_path, png_file_path);
+
 	// Load an object via an obj file
-	load_obj_file_data("./assets/f117.obj", GRAY);
-	load_png_texture_data("./assets/f117.png");
+	load_obj_file_data(obj_file_path, GRAY);
+	load_png_texture_data(png_file_path);
 
 	current_color = colors[color_index];
 }
@@ -64,7 +74,7 @@ void update(AppState *app)
 	if (time_to_wait > 0 && time_to_wait < app->frame_target_time)
 		SDL_Delay(time_to_wait);
 
-	// Delta time is the time since the previous frame in seconds, and itd used for consistent animations, regardless of FPS
+	// Delta time is the time since the previous frame in seconds, and its used for consistent animations, regardless of FPS
 	app->delta_time = (SDL_GetTicks() - app->previous_frame_time) / 1000.0f;
 
 	app->previous_frame_time = SDL_GetTicks();
@@ -337,9 +347,33 @@ int main(int argc, char **argv)
 {
 	AppState app;
 
+	printf("Enter a number for the obj/texture you want to load:\n");
+	printf("1. Cube\n");
+	printf("2. F22\n");
+	printf("3. Crab\n");
+	printf("4. Grass Block\n");
+	printf("5. Drone\n");
+	printf("6. EFA\n");
+	printf("7. F117\n\n");
+	printf(">> ");
+
+    if (scanf("%d", &app.texture_choice) != 1)
+	{
+        fprintf(stderr, "Invalid input.\n");
+        return 0;
+    }
+
 	app.is_running = 
 	(argc > 2) ? window_init(&app.win, atoi(argv[1]), atoi(argv[2]))
                                 : window_init(&app.win, 0, 0);
+
+	if (!app.is_running)
+	{
+    	fprintf(stderr, "window_init failed: %s\n", SDL_GetError());
+    	return 1;
+	}
+
+	app_init(&app, app.texture_choice);
 
 	srand((unsigned)time(NULL));
 
