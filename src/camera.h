@@ -21,3 +21,4 @@ extern camera_t camera;
 
 void camera_init(void);
 void camera_update_direction(void);
+void get_camera_info(void);

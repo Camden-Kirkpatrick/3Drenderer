@@ -10,6 +10,5 @@ typedef struct
 } light_t;
 
 extern light_t light;
-extern bool lighting;
 
 uint32_t light_apply_intensity(uint32_t original_color, float percentage_factor);

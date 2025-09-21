@@ -5,13 +5,17 @@
 #include "array.h"
 #include "display.h"
 
-mesh_t mesh = {
+mesh_t m = {
     .vertices = NULL,
     .faces = NULL,
     .rotation = {0, 0, 0},
     .scale = {1.0, 1.0, 1.0},
     .translation = {0, 0, 0},
 };
+
+#define MAX_NUM_MESHES 10
+static mesh_t meshes[MAX_NUM_MESHES];
+static int mesh_count = 0;
 
 vec3_t cube_vertices[N_CUBE_VERTICES] = {
     {.x = -1, .y = -1, .z = -1}, // 1
@@ -50,20 +54,20 @@ void load_cube_mesh_data(void)
     for (int i = 0; i < N_CUBE_VERTICES; i++)
     {
         vec3_t cube_vertex = cube_vertices[i];
-        array_push(mesh.vertices, cube_vertex);
+        array_push(m.vertices, cube_vertex);
     }
 
     for (int i = 0; i < N_CUBE_FACES; i++)
     {
         face_t cube_face = cube_faces[i];
-        array_push(mesh.faces, cube_face);
+        array_push(m.faces, cube_face);
     }
 }
 
-void load_obj_file_data(const char* filename, uint32_t obj_color)
+void load_mesh_obj_data(mesh_t *mesh, const char* obj_file, uint32_t obj_color)
 {
     FILE* file;
-    file = fopen(filename, "r");
+    file = fopen(obj_file, "r");
     char line[1024];
 
     tex2_t* texcoords = NULL;
@@ -75,7 +79,7 @@ void load_obj_file_data(const char* filename, uint32_t obj_color)
         {
             vec3_t vertex;
             sscanf(line, "v %f %f %f", &vertex.x, &vertex.y, &vertex.z);
-            array_push(mesh.vertices, vertex);
+            array_push(mesh->vertices, vertex);
         }
         // Texture coordinate information
         if (strncmp(line, "vt ", 3) == 0)
@@ -105,8 +109,57 @@ void load_obj_file_data(const char* filename, uint32_t obj_color)
                 .c_uv = texcoords[texture_indices[2] - 1],
                 .color = obj_color
             };
-            array_push(mesh.faces, face);
+            array_push(mesh->faces, face);
         }
     }
     array_free(texcoords);
+}
+
+void load_mesh(char *obj_file, char *png_file, vec3_t scale, vec3_t translation, vec3_t rotation)
+{
+    load_mesh_obj_data(&meshes[mesh_count], obj_file, WHITE);
+    load_mesh_png_data(&meshes[mesh_count], png_file);
+
+    meshes[mesh_count].scale = scale;
+    meshes[mesh_count].translation = translation;
+    meshes[mesh_count].rotation = rotation;
+
+    mesh_count++;
+}
+
+void load_mesh_png_data(mesh_t *mesh, const char* png_file)
+{
+    upng_t *png_image = upng_new_from_file(png_file);
+    if (png_image != NULL)
+    {
+        upng_decode(png_image);
+        if (upng_get_error(png_image) == UPNG_EOK)
+        {
+            mesh->texture = png_image;
+        }
+    }
+}
+
+mesh_t* get_mesh(int index)
+{
+    return &meshes[index];
+}
+
+int get_num_meshes(void)
+{
+    return mesh_count;
+}
+
+void free_meshes(void)
+{
+    for (int i = 0; i < mesh_count; i++)
+    {
+        array_free(meshes[i].faces);
+        array_free(meshes[i].vertices);
+        if (meshes[i].texture)
+        {
+            upng_free(meshes[i].texture);
+            meshes[i].texture = NULL;
+        }
+    }
 }

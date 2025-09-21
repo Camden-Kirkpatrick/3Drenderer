@@ -1,9 +1,8 @@
 #include "light.h"
 
-// Light from the camera to the window
+// Light from the camera
 // 1 in z, means the light is pointing down the +z axis
 light_t light = {.direction = {0, 0, 1}};
-bool lighting = false;
 
 // Apply brightness scaling to a 32-bit ARGB color.
 // The factor (0–1) scales RGB while keeping alpha unchanged.

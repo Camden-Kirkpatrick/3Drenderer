@@ -1,5 +1,5 @@
-﻿#include <math.h>
-#include "vector.h"
+﻿#include "vector.h"
+#include "mathdefs.h"
 
 ///////////////////////////////////////////////////////////////////////
 // 2D VECTOR FUNCTIONS

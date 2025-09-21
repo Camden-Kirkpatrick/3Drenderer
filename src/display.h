@@ -5,14 +5,23 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// Forward-declare to avoid circular include
+struct AppState;
+
 typedef struct {
     SDL_Window   *sdl_window;
     SDL_Renderer *renderer;
     SDL_Texture  *color_buffer_texture;
     uint32_t     *color_buffer;
     float        *z_buffer;
+
+    // Internal render resolution (backbuffer/texture size)
     int           width;
     int           height;
+
+    // Physical window/display size (fullscreen target)
+    int           screen_w;
+    int           screen_h;
 } Window;
 
 // ABGR8888 (for SDL_PIXELFORMAT_RGBA32 on little-endian)
@@ -57,12 +66,16 @@ void draw_pixel(Window *w, int x, int y, uint32_t color);
 void draw_rectangle(Window *w, int x, int y, int width, int height, uint32_t color);
 void draw_grid(Window *w, int x, int y, int width, int height, int line_spacing, uint32_t color);
 void draw_dotted_grid(Window *w, int x, int y, int width, int height, int dot_spacing, uint32_t color);
-uint32_t generate_random_color(Window *w);
+uint32_t generate_random_color(void);
 void animate_rectangles(Window *w, int num_rects, float dt);
 void draw_checker_board(Window *w, int cell_width, int cell_height, int rows, int cols, uint32_t cell_color_1, uint32_t cell_color_2, uint32_t border_color);
 void draw_line(Window *w, int x0, int y0, int x1, int y1, uint32_t color);
 void draw_filled_circle(Window *w, int cx, int cy, int rad, uint32_t color);
 void clear_color_buffer(Window *w, uint32_t color);
+bool should_render_filled_triangles(struct AppState *app);
+bool should_render_textured_triangles(struct AppState *app);
+bool should_render_wireframe(struct AppState *app);
+bool should_render_vertices(struct AppState *app);
 void clear_z_buffer(Window *w);
 void cleanup_rectangles(void);
 void window_destroy(Window* w);

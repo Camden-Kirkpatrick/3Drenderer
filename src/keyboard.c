@@ -1,14 +1,12 @@
 #include <SDL2/SDL.h>
 #include <stdbool.h>
-#include <math.h>
 #include "keyboard.h"
 #include "mesh.h"
 #include "display.h"
 #include "camera.h"
 #include "light.h"
 #include "app.h"
-
-#define DEG2RAD(d) ((d) * M_PI / 180.0f)
+#include "mathdefs.h"
 
 static const float MAX_FOVY = DEG2RAD(120);
 static const float MIN_FOVY = DEG2RAD(30);
@@ -16,6 +14,7 @@ static const float INC_FOVY = DEG2RAD(1);
 
 // Clamp pitch to just under +/-90°
 static const float MAX_PITCH = DEG2RAD(89.9f);
+static const float INC_CAMERA_SPEED = 0.25f;
 
 static bool k_w, k_a, k_s, k_d, k_space, k_lshift;
 static bool k_left, k_right, k_up, k_down;
@@ -126,11 +125,11 @@ void process_input(AppState *app)
 				break;
 
 			case SDLK_EQUALS:
-				camera.speed += 0.1f;
+				camera.speed += INC_CAMERA_SPEED;
 				break;
 			case SDLK_MINUS:
 				if (camera.speed > 0)
-					camera.speed -= 0.1f;
+					camera.speed -= INC_CAMERA_SPEED;
 				break;
 
 			// Cycle through different colors for an object
@@ -144,12 +143,12 @@ void process_input(AppState *app)
 				break;
 			// Generate a random color for an object
 			case SDLK_r:
-				current_color = generate_random_color(&app->win);
+				current_color = generate_random_color();
 				break;
 
 			// Enable or disable lighting
 			case SDLK_l:
-				lighting = !lighting;
+				app->lighting = !(app->lighting);
 				break;
 			}
 		}
