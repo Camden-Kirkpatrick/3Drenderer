@@ -43,9 +43,6 @@ void setup(AppState *app)
 {
 	camera_init();
 
-	// Initialize frustum planes with a point and a normal
-	// init_frustum_planes(app->fovx, app->fovy, app->znear, app->zfar);
-
 	// Load the mesh in mesh.h
 	//load_cube_mesh_data();
 
@@ -87,12 +84,13 @@ void setup(AppState *app)
 ///////////////////////////////////////////////////////////////////////////////
 void process_graphics_pipeline_stages(AppState *app, mesh_t *mesh)
 {
+	// Initialize frustum planes with a point and a normal
 	init_frustum_planes(app->fovx, app->fovy, app->znear, app->zfar);
-	
-	proj_matrix = mat4_make_perspective(app->fovy, app->aspectx, app->znear, app->zfar);
 
 	camera_update_direction();
 	view_matrix = mat4_look_at(camera.position, camera.target, camera.up);
+
+	proj_matrix = mat4_make_perspective(app->fovy, app->aspectx, app->znear, app->zfar);
 
 	// Create a scale, translation, and rotation matrix that will be used to transform our mesh vertices
 	mat4_t scale_matrix = mat4_make_scale(mesh->scale.x, mesh->scale.y, mesh->scale.z);
@@ -297,55 +295,57 @@ void render(AppState *app)
 	int num_triangles = num_triangles_to_render;
 
 	// Render each triangle
+	// PASS 1 — draw all filled/textured triangles first
 	for (int i = 0; i < num_triangles; i++)
 	{
-		triangle_t triangle = triangles_to_render[i];
+		triangle_t t = triangles_to_render[i];
 
-		// Draw a filled triangle
 		if (should_render_filled_triangles(app))
 		{
-			draw_filled_triangle
-			(
+			draw_filled_triangle(
 				&app->win,
-				triangle.points[0].x, triangle.points[0].y, triangle.points[0].z, triangle.points[0].w,
-				triangle.points[1].x, triangle.points[1].y, triangle.points[1].z, triangle.points[1].w,
-				triangle.points[2].x, triangle.points[2].y, triangle.points[2].z, triangle.points[2].w,
-				triangle.color
+				t.points[0].x, t.points[0].y, t.points[0].z, t.points[0].w,
+				t.points[1].x, t.points[1].y, t.points[1].z, t.points[1].w,
+				t.points[2].x, t.points[2].y, t.points[2].z, t.points[2].w,
+				t.color
 			);
 		}
 
 		if (should_render_textured_triangles(app))
 		{
-			// We need to pass in the z and w components too, so we can have a perspective correct texture
-			draw_textured_triangle
-			(
-				&app->win,
-				triangle.texture,
-				triangle.points[0].x, triangle.points[0].y, triangle.points[0].z, triangle.points[0].w, triangle.texcoords[0].u, triangle.texcoords[0].v,
-				triangle.points[1].x, triangle.points[1].y, triangle.points[1].z, triangle.points[1].w, triangle.texcoords[1].u, triangle.texcoords[1].v,
-				triangle.points[2].x, triangle.points[2].y, triangle.points[2].z, triangle.points[2].w, triangle.texcoords[2].u, triangle.texcoords[2].v
+			draw_textured_triangle(
+				&app->win, t.texture,
+				t.points[0].x, t.points[0].y, t.points[0].z, t.points[0].w, t.texcoords[0].u, t.texcoords[0].v,
+				t.points[1].x, t.points[1].y, t.points[1].z, t.points[1].w, t.texcoords[1].u, t.texcoords[1].v,
+				t.points[2].x, t.points[2].y, t.points[2].z, t.points[2].w, t.texcoords[2].u, t.texcoords[2].v
 			);
 		}
+	}
 
-		// Draw an unfilled triangle (wireframe)
-		if (should_render_wireframe(app))
+	// PASS 2 — draw all wireframes/vertices last (as an overlay)
+	if (should_render_wireframe(app) || should_render_vertices(app))
+	{
+		for (int i = 0; i < num_triangles; i++)
 		{
-			draw_triangle
-			(
-				&app->win,
-				triangle.points[0].x, triangle.points[0].y,
-				triangle.points[1].x, triangle.points[1].y,
-				triangle.points[2].x, triangle.points[2].y,
-				WHITE
-			);
-		}
+			triangle_t t = triangles_to_render[i];
 
-		// Draw the triangle vertices
-		if (should_render_vertices(app))
-		{
-			draw_rectangle(&app->win, triangle.points[0].x - 1, triangle.points[0].y - 1, 3, 3, GREEN);
-			draw_rectangle(&app->win, triangle.points[1].x - 1, triangle.points[1].y - 1, 3, 3, GREEN);
-			draw_rectangle(&app->win, triangle.points[2].x - 1, triangle.points[2].y - 1, 3, 3, GREEN);
+			if (should_render_wireframe(app))
+			{
+				draw_triangle(
+					&app->win,
+					t.points[0].x, t.points[0].y,
+					t.points[1].x, t.points[1].y,
+					t.points[2].x, t.points[2].y,
+					WHITE
+				);
+			}
+
+			if (should_render_vertices(app))
+			{
+				draw_rectangle(&app->win, t.points[0].x - 1, t.points[0].y - 1, 3, 3, GREEN);
+				draw_rectangle(&app->win, t.points[1].x - 1, t.points[1].y - 1, 3, 3, GREEN);
+				draw_rectangle(&app->win, t.points[2].x - 1, t.points[2].y - 1, 3, 3, GREEN);
+			}
 		}
 	}
 

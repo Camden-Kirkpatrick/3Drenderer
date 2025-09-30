@@ -83,8 +83,7 @@ void triangles_from_polygon(polygon_t *polygon, triangle_t triangles[], int *num
 
 		triangles[i].points[0] = vec4_from_vec3(polygon->vertices[index0]);
 		triangles[i].points[1] = vec4_from_vec3(polygon->vertices[index1]);
-		triangles[i].points[2] = vec4_from_vec3(polygon->vertices[index2]);
-
+		triangles[i].points[2] = vec4_from_vec3(polygon->vertices[index2]); 
 		triangles[i].texcoords[0] = polygon->texcoords[index0];
 		triangles[i].texcoords[1] = polygon->texcoords[index1];
 		triangles[i].texcoords[2] = polygon->texcoords[index2];
@@ -127,7 +126,7 @@ void clip_polygon_against_plane(polygon_t *polygon, int plane)
 		current_dot = vec3_dot(vec3_sub(*current_vertex, plane_point), plane_normal);
 
 		// If we changed from inside to outside the plane, or vice-versa
-		if (current_dot * previous_dot < 0)
+		if (current_dot * previous_dot < 0.0f)
 		{
 			// Calculate the linear interpolation factor 't', t = dotQ1 / (dotQ1 - dotQ2)
 			float t = previous_dot / (previous_dot - current_dot);
@@ -150,8 +149,8 @@ void clip_polygon_against_plane(polygon_t *polygon, int plane)
 			num_inside_vertices++;
 		}
 
-		// If the current vertex is inside the plane
-		if (current_dot > 0)
+		// If the current vertex is inside the plane or directly on it
+		if (current_dot >= 0.0f)
 		{
 			inside_vertices[num_inside_vertices] = vec3_clone(current_vertex);
 			inside_texcoords[num_inside_vertices] = tex2_clone(current_texcoord);
